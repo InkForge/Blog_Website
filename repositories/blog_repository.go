@@ -59,7 +59,7 @@ func (b *BlogMongoRepository) GetByID(ctx context.Context, blogID string) (domai
 	err := b.blogCollection.FindOne(ctx, filter).Decode(&blogModel)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return domain.Blog{}, nil
+			return domain.Blog{}, fmt.Errorf("blog with ID '%s' not found", blogID)
 		}
 		return domain.Blog{}, fmt.Errorf("failed to get blog by ID '%s' from MongoDB: %w", blogID, err)
 	}
@@ -70,17 +70,17 @@ func (b *BlogMongoRepository) GetByID(ctx context.Context, blogID string) (domai
 func (b BlogMongoRepository) Update(ctx context.Context, blog domain.Blog) error {
 	filter := bson.M{"blog_id": blog.Blog_id}
 	blogMongo := models.FromDomain(&blog)
+
+	// Only update user-editable fields (system-managed fields are excluded)
 	update := bson.M{
 		"$set": bson.M{
-			"title":          blogMongo.Title,
-			"content":        blogMongo.Content,
-			"images":         blogMongo.Images,
-			"tag_ids":        blogMongo.TagIDs,
-			"comment_ids":    blogMongo.CommentIDs,
-			"like_counts":    blogMongo.LikeCounts,
-			"dislike_counts": blogMongo.DislikeCounts,
-			"share_count":    blogMongo.ShareCount,
-			"updated_at":     blogMongo.UpdatedAt,
+			"title":      blogMongo.Title,
+			"content":    blogMongo.Content,
+			"user_id":    blogMongo.UserID,
+			"images":     blogMongo.Images,
+			"tag_ids":    blogMongo.TagIDs,
+			"posted_at":  blogMongo.PostedAt,
+			"updated_at": blogMongo.UpdatedAt,
 		},
 	}
 
