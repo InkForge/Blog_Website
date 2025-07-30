@@ -28,3 +28,4 @@ type IBlogRepository interface {
 	Update(ctx context.Context, blog Blog) error
 	Delete(ctx context.Context, blogID string) error
 }
+
