@@ -6,19 +6,19 @@ import (
 )
 
 type Blog struct {
-	Blog_id        string    `json:"blog_id"`
-	User_id        string    `json:"user_id"`
-	Title          string    `json:"title"`
-	Images         []string  `json:"images"`
-	Content        string    `json:"content"`
-	Tag_ids        []string  `json:"tag_ids"`
-	Comment_ids    []string  `json:"comment_ids"`
-	Posted_at      time.Time `json:"posted_at"`
-	Like_counts    int       `json:"like_counts"`
-	Dislike_counts int       `json:"dislike_counts"`
-	Share_count    int       `json:"share_count"`
-	Created_at     time.Time `json:"created_at"`
-	Updated_at     time.Time `json:"updated_at"`
+	Blog_id        string   
+	User_id        string    
+	Title          string    
+	Images         []string  
+	Content        string    
+	Tag_ids        []string  
+	Comment_ids    []string  
+	Posted_at      time.Time 
+	Like_counts    int       
+	Dislike_counts int       
+	Share_count    int       
+	Created_at     time.Time 
+	Updated_at     time.Time 
 }
 
 type IBlogRepository interface {
