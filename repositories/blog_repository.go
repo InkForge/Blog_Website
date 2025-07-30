@@ -21,7 +21,7 @@ func NewBlogMongoRepository(db *mongo.Database) *BlogMongoRepository {
 	}
 }
 
-func (b BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (string, error) {
+func (b *BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (string, error) {
 	blog_mongo := models.FromDomain(&blog)
 	result, err := b.blogCollection.InsertOne(ctx, blog_mongo)
 	if err != nil {
@@ -30,7 +30,7 @@ func (b BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (stri
 	return result.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-func (b BlogMongoRepository) GetAll(ctx context.Context) ([]domain.Blog, error) {
+func (b *BlogMongoRepository) GetAll(ctx context.Context) ([]domain.Blog, error) {
 	var blogs []domain.Blog
 	filter := bson.M{}
 	cursor, err := b.blogCollection.Find(ctx, filter)
@@ -67,7 +67,7 @@ func (b *BlogMongoRepository) GetByID(ctx context.Context, blogID string) (domai
 	return *blogModel.ToDomain(), nil
 }
 
-func (b BlogMongoRepository) Update(ctx context.Context, blog domain.Blog) error {
+func (b *BlogMongoRepository) Update(ctx context.Context, blog domain.Blog) error {
 	filter := bson.M{"blog_id": blog.Blog_id}
 	blogMongo := models.FromDomain(&blog)
 
