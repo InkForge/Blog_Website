@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"time"
 )
 
@@ -18,4 +19,12 @@ type Blog struct {
 	Share_count    int       `json:"share_count"`
 	Created_at     time.Time `json:"created_at"`
 	Updated_at     time.Time `json:"updated_at"`
+}
+
+type IBlogRepository interface {
+	Create(ctx context.Context, blog Blog) (string, error)
+	GetAll(ctx context.Context) ([]Blog, error)
+	GetByID(ctx context.Context, blogID string) (Blog, error)
+	Update(ctx context.Context, blog Blog) error
+	Delete(ctx context.Context, blogID string) error
 }
