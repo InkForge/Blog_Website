@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/InkForge/Blog_Website/domain"
-	"github.com/InkForge/Blog_Website/infrastructures/mongo/models"
+	"github.com/InkForge/Blog_Website/repositories/mongo/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
