@@ -38,8 +38,8 @@ type OAuthUser struct {
 
 type IUserRepository interface {
 	CreateUser(user User) error
-	FindByUsername(username string) (User, error)
-	CountByUsername(username string) (int64, error)
+	FindByEmail(email string) (User, error)
+	CountByEmail(email string) (int64, error)
 	CountAll() (int64, error)
 }
 
