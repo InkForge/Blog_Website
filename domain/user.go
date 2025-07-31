@@ -2,37 +2,34 @@ package domain
 
 import "time"
 
+type Role string
+
+const (
+  RoleUser     Role = "USER"
+  RoleAdmin    Role = "ADMIN"
+  
+)
+
+
 type User struct {
-	UserID         int
-	RoleID         int
-	OAuthID        *int
+	UserID         string
+	
 	Username       *string
 	FirstName      *string
 	LastName       *string
 	Bio            *string
 	ProfilePicture *string
+	IsVerified 		bool
 	Email          string
-	HashedPassword *string
+	Password     *string
 	RefreshToken   *string
 	AccessToken    *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 
-	Role *Role
+	Role     Role
 }
 
-type Role struct {
-	RoleID int
-	Role   string
-}
-
-type OAuthUser struct {
-	ID           int
-	ProviderName string
-	ProviderID   int
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
 
 //UserRepository Interface
 
@@ -41,6 +38,7 @@ type IUserRepository interface {
 	FindByEmail(email string) (User, error)
 	CountByEmail(email string) (int64, error)
 	CountAll() (int64, error)
+	IsVerified(email string)bool
 }
 
 //PasswordService Interface
@@ -53,6 +51,7 @@ type IPasswordService interface {
 //JWTService Interface
 
 type IJWTService interface {
+	GenerateVerificationToken(userID string)(string,error)
 	GenerateAccessToken(userID string, role string) (string, error)
 	GenerateRefreshToken(userID string, role string) (string, error)
 	ValidateToken(token string, isRefresh bool) (string, error)
