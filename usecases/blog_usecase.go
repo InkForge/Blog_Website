@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/InkForge/Blog_Website/domain"
@@ -22,16 +21,16 @@ func NewBlogUsecase(blogRepo domain.IBlogRepository, timeout time.Duration) *Blo
 
 func (bu *BlogUsecase) CreateBlog(ctx context.Context, blog *domain.Blog) (string, error) {
 	if blog == nil {
-		return "", errors.New("blog cannot be nil")
+		return "", domain.ErrBlogRequired
 	}
 	if blog.Title == "" {
-		return "", errors.New("title is required")
+		return "", domain.ErrEmptyTitle
 	}
 	if blog.Content == "" {
-		return "", errors.New("content is required")
+		return "", domain.ErrEmptyContent
 	}
 	if blog.User_id == "" {
-		return "", errors.New("user_id is required")
+		return "", domain.ErrInvalidUserID
 	}
 
 	blog.Created_at = time.Now()
@@ -56,7 +55,7 @@ func (bu *BlogUsecase) GetAllBlogs(ctx context.Context) ([]domain.Blog, error) {
 
 func (bu *BlogUsecase) GetBlogByID(ctx context.Context, blogID string) (*domain.Blog, error) {
 	if blogID == "" {
-		return nil, errors.New("invalid blog ID")
+		return nil, domain.ErrInvalidBlogID
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, bu.contextTimeout)
@@ -71,10 +70,10 @@ func (bu *BlogUsecase) GetBlogByID(ctx context.Context, blogID string) (*domain.
 
 func (bu *BlogUsecase) UpdateBlog(ctx context.Context, blog *domain.Blog) error {
 	if blog == nil {
-		return errors.New("blog cannot be nil")
+		return domain.ErrBlogRequired
 	}
 	if blog.Blog_id == "" {
-		return errors.New("blog ID is required")
+		return domain.ErrBlogIDRequired
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, bu.contextTimeout)
@@ -86,24 +85,38 @@ func (bu *BlogUsecase) UpdateBlog(ctx context.Context, blog *domain.Blog) error 
 		return err
 	}
 
+	// Track if any changes were made
+	changesMade := false
+
 	// Apply partial updates - only update user-editable fields
 	if blog.Title != "" {
 		existing.Title = blog.Title
+		changesMade = true
 	}
 	if blog.Content != "" {
 		existing.Content = blog.Content
+		changesMade = true
 	}
 	if blog.User_id != "" {
 		existing.User_id = blog.User_id
+		changesMade = true
 	}
 	if blog.Images != nil {
 		existing.Images = blog.Images
+		changesMade = true
 	}
 	if blog.Tag_ids != nil {
 		existing.Tag_ids = blog.Tag_ids
+		changesMade = true
 	}
 	if !blog.Posted_at.IsZero() {
 		existing.Posted_at = blog.Posted_at
+		changesMade = true
+	}
+
+	// Check if any changes were actually made
+	if !changesMade {
+		return domain.ErrNoBlogChangesMade
 	}
 
 	// Update timestamp
@@ -114,7 +127,7 @@ func (bu *BlogUsecase) UpdateBlog(ctx context.Context, blog *domain.Blog) error 
 
 func (bu *BlogUsecase) DeleteBlog(ctx context.Context, blogID string) error {
 	if blogID == "" {
-		return errors.New("invalid blog ID")
+		return domain.ErrInvalidBlogID
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, bu.contextTimeout)
