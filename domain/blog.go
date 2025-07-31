@@ -27,5 +27,16 @@ type IBlogRepository interface {
 	GetByID(ctx context.Context, blogID string) (Blog, error)
 	Update(ctx context.Context, blog Blog) error
 	Delete(ctx context.Context, blogID string) error
+
+	AddCommentID(ctx context.Context, blogID, commentID string) error
+	RemoveCommentID(ctx context.Context, blogID, commentID string) error
+}
+
+type IBlogUsecase interface {
+	CreateBlog(ctx context.Context, blog *Blog) (string, error)
+	GetAllBlogs(ctx context.Context) ([]Blog, error)
+	GetBlogByID(ctx context.Context, blogID string) (*Blog, error)
+	UpdateBlog(ctx context.Context, blog *Blog) error
+	DeleteBlog(ctx context.Context, blogID string) error
 }
 
