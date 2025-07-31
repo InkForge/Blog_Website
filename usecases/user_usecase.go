@@ -125,7 +125,7 @@ func (uc *UserUseCase) Register (input *domain.User)(*domain.User,error){
 	err= uc.NotificationService.SendEmail(newUser.Email, "Verify Your Email Address", emailBody)
 
 	if err!=nil{
-		fmt.Printf("%w: %v\n", domain.ErrEmailSendingFailed, err)
+		fmt.Println("email sendign failed:",err)
 	}
 
 	return &newUser,nil
