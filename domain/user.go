@@ -53,7 +53,7 @@ type IPasswordService interface {
 //JWTService Interface
 
 type IJWTService interface {
-	GenerateAccessToken(userID string) (string, error)
-	GenerateRefreshToken(userID string) (string, error)
+	GenerateAccessToken(userID string, role string) (string, error)
+	GenerateRefreshToken(userID string, role string) (string, error)
 	ValidateToken(token string, isRefresh bool) (string, error)
 }
