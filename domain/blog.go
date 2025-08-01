@@ -29,4 +29,15 @@ type IBlogRepository interface {
 	Delete(ctx context.Context, blogID string) error
 	// receives matching (first names or last names user_ids) and title
 	Search(ctx context.Context, title string, user_ids []string)
+
+	AddCommentID(ctx context.Context, blogID, commentID string) error
+	RemoveCommentID(ctx context.Context, blogID, commentID string) error
+}
+
+type IBlogUsecase interface {
+	CreateBlog(ctx context.Context, blog *Blog) (string, error)
+	GetAllBlogs(ctx context.Context) ([]Blog, error)
+	GetBlogByID(ctx context.Context, blogID string) (*Blog, error)
+	UpdateBlog(ctx context.Context, blog *Blog) error
+	DeleteBlog(ctx context.Context, blogID string) error
 }
