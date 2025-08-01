@@ -9,18 +9,12 @@ import (
 	"github.com/InkForge/Blog_Website/infrastructures/auth/providers"
 )
 
-type IOAuth2Service interface {
-	SupportedProviders() []string
-	GetAuthorizationURL(provider string, state string) (string, error)
-	Authenticate(ctx context.Context, provider string, code string) (*domain.OAuth2User, error)
-}
-
 type oauth2Service struct {
 	providers map[string]domain.IOAuth2Provider
 }
 
 // creates a new OAuth2 service with the given providers
-func NewOAuth2Service(providerConfigs map[string]domain.OAuth2ProviderConfig) (IOAuth2Service, error) {
+func NewOAuth2Service(providerConfigs map[string]domain.OAuth2ProviderConfig) (domain.IOAuth2Service, error) {
 	service := &oauth2Service{
 		providers: make(map[string]domain.IOAuth2Provider),
 	}
@@ -64,7 +58,7 @@ func (o2serv *oauth2Service) GetAuthorizationURL(provider string, state string) 
 	return p.GetAuthorizationURL(state), nil
 }
 
-func (o2serv *oauth2Service) Authenticate(ctx context.Context, provider string, code string) (*domain.OAuth2User, error) {
+func (o2serv *oauth2Service) Authenticate(ctx context.Context, provider string, code string) (*domain.User, error) {
 	
 	p, ok := o2serv.providers[provider]
 	if !ok {

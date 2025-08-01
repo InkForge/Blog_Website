@@ -44,7 +44,7 @@ func (ggprov *googleProvider) GetAuthorizationURL(state string) string {
 	return ggprov.config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 }
 
-func (ggprov *googleProvider) Authenticate(ctx context.Context, code string) (*domain.OAuth2User, error) {
+func (ggprov *googleProvider) Authenticate(ctx context.Context, code string) (*domain.User, error) {
 	
 	token, err := ggprov.config.Exchange(ctx, code)
 	if err != nil {
@@ -64,13 +64,13 @@ func (ggprov *googleProvider) Authenticate(ctx context.Context, code string) (*d
 	}
 
 	var userInfo struct {
-		ID            	string    `json:"id"`
-		Email         	string    `json:"email"`
-		VerifiedEmail 	bool      `json:"verified_email"`
-		Name          	string 	  `json:"name"`
-		GivenName     	string 	  `json:"given_name"`
-		FamilyName    	string 	  `json:"family_name"`
-		Picture       	string 	  `json:"picture"`
+		ID            	string        `json:"id"`
+		Email         	string        `json:"email"`
+		VerifiedEmail 	bool          `json:"verified_email"`
+		Name          	*string 	  `json:"name"`
+		GivenName     	*string 	  `json:"given_name"`
+		FamilyName    	*string 	  `json:"family_name"`
+		Picture       	*string 	  `json:"picture"`
 	}
 
 	if err := json.Unmarshal(data, &userInfo); err != nil {
@@ -83,15 +83,15 @@ func (ggprov *googleProvider) Authenticate(ctx context.Context, code string) (*d
 		rawData = make(map[string]interface{})
 	}
 
-	return &domain.OAuth2User{
-		ID:            userInfo.ID,
-		Email:         userInfo.Email,
-		VerifiedEmail: userInfo.VerifiedEmail,
-		Name:          userInfo.Name,
-		FirstName:     userInfo.GivenName,
-		LastName:      userInfo.FamilyName,
-		Picture:       userInfo.Picture,
-		Provider:      ggprov.Name(),
-		RawData:       rawData,
+	return &domain.User{
+		UserID:                userInfo.ID,
+		Email:                 userInfo.Email,
+		IsVerified:            userInfo.VerifiedEmail,
+		Name:                  userInfo.Name,
+		FirstName:             userInfo.GivenName,
+		LastName:              userInfo.FamilyName,
+		ProfilePicture:        userInfo.Picture,
+		Provider:              ggprov.Name(),
+		RawData:               rawData,
 	}, nil
 }

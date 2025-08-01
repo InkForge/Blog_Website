@@ -2,6 +2,10 @@ package repositories
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"reflect"
+	"time"
 
 	"github.com/InkForge/Blog_Website/domain"
 	"github.com/InkForge/Blog_Website/repositories/mongo/models"
@@ -21,17 +25,37 @@ func NewBlogMongoRepository(db *mongo.Database) *BlogMongoRepository {
 }
 
 func (b *BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (string, error) {
-	blogMongo := models.FromDomain(&blog)
-	result, err := b.blogCollection.InsertOne(ctx, blogMongo)
+	mongoBlog, err := models.FromDomain(&blog)
 	if err != nil {
-		return "", domain.ErrInsertingDocuments
+		return "", fmt.Errorf("%w: %v", domain.ErrInvalidBlogIdFormat, err)
 	}
-	return result.InsertedID.(primitive.ObjectID).Hex(), nil
+	
+	// if they came in empty
+	if mongoBlog.Created_at.IsZero() {
+		mongoBlog.Created_at = time.Now()
+	}
+	if mongoBlog.Updated_at.IsZero() {
+		mongoBlog.Updated_at = time.Now()
+	}
+
+	result, err := b.blogCollection.InsertOne(ctx, mongoBlog)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", domain.ErrInsertingDocuments, err)
+	}
+	
+	// Safe type assertion with error handling
+	objectID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return "", fmt.Errorf("unexpected insertedID type: %T", result.InsertedID)
+	}
+
+	return objectID.Hex(), nil
 }
 
 func (b *BlogMongoRepository) GetAll(ctx context.Context) ([]domain.Blog, error) {
 	var blogs []domain.Blog
 	filter := bson.M{}
+
 	cursor, err := b.blogCollection.Find(ctx, filter)
 	if err != nil {
 		return nil, domain.ErrRetrievingDocuments
@@ -39,17 +63,17 @@ func (b *BlogMongoRepository) GetAll(ctx context.Context) ([]domain.Blog, error)
 	defer cursor.Close(ctx)
 
 	for cursor.Next(ctx) {
-		var blogMongo models.BlogMongo
-		err := cursor.Decode(&blogMongo)
-		if err != nil {
+		var mongoBlog models.MongoBlog
+		if err := cursor.Decode(&mongoBlog); err != nil {
 			return nil, domain.ErrDecodingDocument
 		}
-		blogs = append(blogs, *blogMongo.ToDomain())
+		blogs = append(blogs, *mongoBlog.ToDomain())
 	}
 
 	if err := cursor.Err(); err != nil {
 		return nil, domain.ErrCursorIteration
 	}
+
 	return blogs, nil
 }
 
@@ -60,9 +84,9 @@ func (b *BlogMongoRepository) GetByID(ctx context.Context, blogID string) (domai
 	}
 
 	filter := bson.M{"_id": objID}
-	var blogModel models.BlogMongo
+	var mongoBlog models.MongoBlog
 
-	err = b.blogCollection.FindOne(ctx, filter).Decode(&blogModel)
+	err = b.blogCollection.FindOne(ctx, filter).Decode(&mongoBlog)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return domain.Blog{}, domain.ErrBlogNotFound
@@ -70,7 +94,7 @@ func (b *BlogMongoRepository) GetByID(ctx context.Context, blogID string) (domai
 		return domain.Blog{}, domain.ErrRetrievingDocuments
 	}
 
-	return *blogModel.ToDomain(), nil
+	return *mongoBlog.ToDomain(), nil
 }
 
 func (b *BlogMongoRepository) Update(ctx context.Context, blog domain.Blog) error {
@@ -79,28 +103,46 @@ func (b *BlogMongoRepository) Update(ctx context.Context, blog domain.Blog) erro
 		return domain.ErrInvalidBlogID
 	}
 
-	filter := bson.M{"_id": objID}
-	blogMongo := models.FromDomain(&blog)
+	var existingMongoBlog models.MongoBlog
+	err = b.blogCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&existingMongoBlog)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return domain.ErrBlogNotFound
+		}
+		return domain.ErrRetrievingDocuments
+	}
+
+	if blog.Title == existingMongoBlog.Title &&
+		blog.Content == existingMongoBlog.Content &&
+		reflect.DeepEqual(blog.Images, existingMongoBlog.Images) &&
+		reflect.DeepEqual(blog.Tag_ids, existingMongoBlog.Tag_ids) {
+		return domain.ErrNoBlogChangesMade
+	}
+
+	mongoBlog, err := models.FromDomain(&blog)
+	if err != nil {
+		return fmt.Errorf("%w: %v", domain.ErrInvalidBlogIdFormat, err)
+	}
+	mongoBlog.Updated_at = time.Now()
 
 	update := bson.M{
 		"$set": bson.M{
-			"title":      blogMongo.Title,
-			"content":    blogMongo.Content,
-			"user_id":    blogMongo.UserID,
-			"images":     blogMongo.Images,
-			"tag_ids":    blogMongo.TagIDs,
-			"posted_at":  blogMongo.PostedAt,
-			"updated_at": blogMongo.UpdatedAt,
+			"title":      mongoBlog.Title,
+			"content":    mongoBlog.Content,
+			"images":     mongoBlog.Images,
+			"tag_ids":    mongoBlog.Tag_ids,
+			"updated_at": mongoBlog.Updated_at,
 		},
 	}
 
-	result, err := b.blogCollection.UpdateOne(ctx, filter, update)
+	result, err := b.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, update)
 	if err != nil {
-		return domain.ErrUpdatingDocument
+		return fmt.Errorf("%w: %v", domain.ErrUpdatingDocument, err)
 	}
 	if result.MatchedCount == 0 {
 		return domain.ErrBlogNotFound
 	}
+
 	return nil
 }
 
@@ -114,12 +156,92 @@ func (b *BlogMongoRepository) Delete(ctx context.Context, blogID string) error {
 
 	result, err := b.blogCollection.DeleteOne(ctx, filter)
 	if err != nil {
-		return domain.ErrDeletingDocument
+		return fmt.Errorf("%w: %v", domain.ErrDeletingDocument, err)
 	}
 
 	if result.DeletedCount == 0 {
 		return domain.ErrBlogNotFound
 	}
 
+	return nil
+}
+
+func (b *BlogMongoRepository) Search(ctx context.Context, title string, user_ids []string) ([]domain.Blog, error) {
+	filter := bson.M{
+		"Title": title,
+		"User_id": bson.M{
+			"$in": user_ids,
+		},
+	}
+	var blogs []domain.Blog
+	cursor, err := b.blogCollection.Find(ctx, filter)
+	if err != nil {
+		return nil, domain.ErrQueryFailed
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var mongoBlog models.MongoBlog
+		if err := cursor.Decode(&mongoBlog); err != nil {
+			return nil, domain.ErrDocumentDecoding
+		}
+		blogs = append(blogs, *mongoBlog.ToDomain())
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, domain.ErrCursorFailed
+	}
+	return blogs, nil
+}
+
+func (b *BlogMongoRepository) AddCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogID
+	}
+
+	filter := bson.M{"_id": objID}
+	update := bson.M{
+		"$push": bson.M{
+			"comment_ids": commentID,
+		},
+		"$set": bson.M{
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := b.blogCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	if result.MatchedCount == 0 {
+		return domain.ErrBlogNotFound
+	}
+	return nil
+}
+
+func (b *BlogMongoRepository) RemoveCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogID
+	}
+
+	filter := bson.M{"_id": objID}
+	update := bson.M{
+		"$pull": bson.M{
+			"comment_ids": commentID,
+		},
+		"$set": bson.M{
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := b.blogCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	if result.MatchedCount == 0 {
+		return domain.ErrBlogNotFound
+	}
 	return nil
 }
