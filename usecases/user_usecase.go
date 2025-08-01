@@ -14,6 +14,7 @@ type UserUseCase struct {
 	PasswordService domain.IPasswordService
 	JWTService domain.IJWTService
 	NotificationService domain.INotificationService
+	Oauth2Service domain.IOAuth2Service
 	BaseURL string
 }
 
@@ -58,82 +59,86 @@ func NewUserUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw 
 
 //register usecase
 
-func (uc *UserUseCase) Register (input *domain.User)(*domain.User,error){
-	//email format validation
-	if !validateEmail(input.Email){
-		return nil,fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
-	}
-
-
-	//check if email already exits
-	count,err:= uc.UserRepo.CountByEmail(input.Email)
-	if err !=nil{
-		return nil,fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
-	}
-
-	if count >0{
-		return nil,fmt.Errorf("%w", domain.ErrEmailAlreadyExists)
-	}
-
-	//check if this is the first user
-	totalUsers,err:=uc.UserRepo.CountAll()
-	if err!=nil{
-		return nil,fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
-
-	}
-	//hash password
-	hashedPassword,err:=uc.PasswordService.HashPassword(*input.Password)
-	if err !=nil{
-		return nil,fmt.Errorf("%w: %v", domain.ErrPasswordHashingFailed, err)
-	}
-	//assign role 
-	role:=domain.RoleUser
-	if totalUsers==0{
-		role=domain.RoleAdmin
-	}
-
-	//create the user model
-	newUser := domain.User{
-		Role:         role,
-		Username:       input.Username,
-		FirstName:      input.FirstName,
-		LastName:       input.LastName,
-		Email:          input.Email,
-		Password: &hashedPassword,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
-
-	//save user to the database
-	err=uc.UserRepo.CreateUser(newUser)
-	if err !=nil{
-		return nil,fmt.Errorf("%w: %v", domain.ErrUserCreationFailed, err)
-
-	}
-	//email verification
-
-	//generate verification token
-
-	verificationToken,err:=uc.JWTService.GenerateVerificationToken(fmt.Sprint(newUser.UserID))
-	if err !=nil{
-		return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
-	}
-
-
-	verificationLink := fmt.Sprintf("%s/verify?token=%s", uc.BaseURL,verificationToken)
-	emailBody := generateVerificationEmailBody(verificationLink)
-	err= uc.NotificationService.SendEmail(newUser.Email, "Verify Your Email Address", emailBody)
-
-	if err!=nil{
-		fmt.Println("email sendign failed:",err)
-	}
-
-	return &newUser,nil
-
-
-
+// Register handles user registration, supporting both traditional and OAuth-based flows
+func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*domain.User, error) {
 	
+	var email string
+	if oauthUser != nil {
+		email = oauthUser.Email
+	} else {
+		email = input.Email
+	}
+
+	// email format validation
+	if !validateEmail(email) {
+		return nil, fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
+	}
+
+	// check if email already exists
+	count, err := uc.UserRepo.CountByEmail(email)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
+	}
+	if count > 0 {
+		return nil, fmt.Errorf("%w", domain.ErrEmailAlreadyExists)
+	}
+
+	// check if this is the first user
+	totalUsers, err := uc.UserRepo.CountAll()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
+	}
+
+	role := domain.RoleUser
+	if totalUsers == 0 {
+		role = domain.RoleAdmin
+	}
+
+	var hashedPassword *string
+	if oauthUser == nil {
+		hashed, err := uc.PasswordService.HashPassword(*input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", domain.ErrPasswordHashingFailed, err)
+		}
+		hashedPassword = &hashed
+	}
+
+	// construct user model
+	newUser := domain.User{
+		Role:             role,
+		Username:         chooseNonEmpty(input.Username, oauthUser),
+		FirstName:        chooseNonEmpty(input.FirstName, oauthUser),
+		LastName:         chooseNonEmpty(input.LastName, oauthUser),
+		Email:            email,
+		Password:         hashedPassword,
+		ProfilePicture:   oauthUserPicture(oauthUser),
+		Provider:         oauthUserProvider(oauthUser),
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
+
+	// save user to the database
+	err = uc.UserRepo.CreateUser(newUser)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrUserCreationFailed, err)
+	}
+
+	// only send verification email if not registered via OAuth
+	if oauthUser == nil {
+		verificationToken, err := uc.JWTService.GenerateVerificationToken(fmt.Sprint(newUser.UserID))
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+		}
+		verificationLink := fmt.Sprintf("%s/verify?token=%s", uc.BaseURL, verificationToken)
+		emailBody := generateVerificationEmailBody(verificationLink)
+		if err = uc.NotificationService.SendEmail(newUser.Email, "Verify Your Email Address", emailBody); err != nil {
+			fmt.Println("email sending failed:", err)
+		}
+	}
+
+	return &newUser, nil
 }
+
 
 func (uc *UserUseCase) Login(input domain.User)(string,string,*domain.User,error){
 	//validate email
@@ -178,4 +183,33 @@ func (uc *UserUseCase) Login(input domain.User)(string,string,*domain.User,error
 	
 
 
+}
+
+
+// helper functions 
+func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
+	if field != nil {
+		return field
+	}
+	if oauthUser == nil {
+		return nil
+	}
+	if field == nil && *oauthUser.FirstName != "" {
+		return oauthUser.FirstName
+	}
+	return oauthUser.Name // fallback
+}
+
+func oauthUserPicture(oauthUser *domain.User) *string {
+	if oauthUser == nil || *oauthUser.ProfilePicture == "" {
+		return nil
+	}
+	return oauthUser.ProfilePicture
+}
+
+func oauthUserProvider(oauthUser *domain.User) string {
+	if oauthUser == nil {
+		return ""
+	}
+	return oauthUser.Provider
 }

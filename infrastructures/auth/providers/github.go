@@ -43,7 +43,7 @@ func (ghprov *githubProvider) GetAuthorizationURL(state string) string {
 	return ghprov.config.AuthCodeURL(state)
 }
 
-func (ghprov *githubProvider) Authenticate(ctx context.Context, code string) (*domain.OAuth2User, error) {
+func (ghprov *githubProvider) Authenticate(ctx context.Context, code string) (*domain.User, error) {
 	
 	token, err := ghprov.config.Exchange(ctx, code)
 	if err != nil {
@@ -65,11 +65,13 @@ func (ghprov *githubProvider) Authenticate(ctx context.Context, code string) (*d
 	}
 
 	var profile struct {
-		ID      	int      `json:"id"`
-		Login   	string   `json:"login"`
-		Name    	string   `json:"name"`
-		Email   	string   `json:"email"`
-		Picture 	string   `json:"avatar_url"`
+		ID      	int       `json:"id"`
+		Login   	string    `json:"login"`
+		Name    	*string   `json:"name"`
+		FirstName   *string
+		LastName    *string
+		Email   	string    `json:"email"`
+		Picture 	*string   `json:"avatar_url"`
 	}
 
 	if err := json.Unmarshal(profileData, &profile); err != nil {
@@ -113,15 +115,15 @@ func (ghprov *githubProvider) Authenticate(ctx context.Context, code string) (*d
 		rawData = make(map[string]interface{})
 	}
 
-	return &domain.OAuth2User{
-		ID:            fmt.Sprintf("%d", profile.ID),
-		Email:         profile.Email,
-		VerifiedEmail: true,      // GitHub doesn't provide this info
-		Name:          profile.Name,
-		FirstName:     "",        // GitHub doesn't provide first name separately
-		LastName:      "",		  // GitHub doesn't provide last name separately
-		Picture:       profile.Picture,
-		Provider:      ghprov.Name(),
-		RawData:       rawData,
+	return &domain.User{
+		UserID:               fmt.Sprintf("%d", profile.ID),
+		Email:                profile.Email,
+		IsVerified:           true,      // GitHub doesn't provide this info
+		Name:                 profile.Name,
+		FirstName:            profile.FirstName,      // GitHub doesn't provide first name separately
+		LastName:      		  profile.LastName,		  // GitHub doesn't provide last name separately
+		ProfilePicture:       profile.Picture,
+		Provider:             ghprov.Name(),
+		RawData:              rawData,
 	}, nil
 }

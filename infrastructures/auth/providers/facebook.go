@@ -42,7 +42,7 @@ func (fbprov *facebookProvider) GetAuthorizationURL(state string) string {
 	return fbprov.config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 }
 
-func (fbprov *facebookProvider) Authenticate(ctx context.Context, code string) (*domain.OAuth2User, error) {
+func (fbprov *facebookProvider) Authenticate(ctx context.Context, code string) (*domain.User, error) {
 	
 	token, err := fbprov.config.Exchange(ctx, code)
 	if err != nil {
@@ -69,14 +69,14 @@ func (fbprov *facebookProvider) Authenticate(ctx context.Context, code string) (
 	}
 
 	var userInfo struct {
-		ID        	string 	 `json:"id"`
-		Email     	string 	 `json:"email"`
-		Name      	string   `json:"name"`
-		FirstName 	string   `json:"first_name"`
-		LastName  	string   `json:"last_name"`
+		ID        	string 	  `json:"id"`
+		Email     	string 	  `json:"email"`
+		Name      	*string   `json:"name"`
+		FirstName 	*string   `json:"first_name"`
+		LastName  	*string   `json:"last_name"`
 		Picture   	struct {
 			Data 	struct {
-				URL string `json:"url"`
+				URL *string `json:"url"`
 			} `json:"data"`
 		} `json:"picture"`
 	}
@@ -91,15 +91,15 @@ func (fbprov *facebookProvider) Authenticate(ctx context.Context, code string) (
 		rawData = make(map[string]interface{})
 	}
 
-	return &domain.OAuth2User{
-		ID:            userInfo.ID,
-		Email:         userInfo.Email,
-		VerifiedEmail: true,        // facebook doesn't provide this info
-		Name:          userInfo.Name,
-		FirstName:     userInfo.FirstName,
-		LastName:      userInfo.LastName,
-		Picture:       userInfo.Picture.Data.URL,
-		Provider:      fbprov.Name(),
-		RawData:       rawData,
+	return &domain.User{
+		UserID:               userInfo.ID,
+		Email:                userInfo.Email,
+		IsVerified:           true,        // facebook doesn't provide this info
+		Name:                 userInfo.Name,
+		FirstName:            userInfo.FirstName,
+		LastName:      		  userInfo.LastName,
+		ProfilePicture:       userInfo.Picture.Data.URL,
+		Provider:             fbprov.Name(),
+		RawData:              rawData,
 	}, nil
 }
