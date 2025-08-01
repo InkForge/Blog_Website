@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"time"
+
+	
 )
 
 type Role string
@@ -45,6 +47,8 @@ type IUserRepository interface {
 	CountByEmail(email string) (int64, error)
 	CountAll() (int64, error)
 	IsVerified(email string)bool
+	FindByID(userID string)(User,error)
+	UpdateUser(user User)(error)
 }
 
 //PasswordService Interface
