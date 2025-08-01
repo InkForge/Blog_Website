@@ -2,22 +2,27 @@ package usecases
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/InkForge/Blog_Website/domain"
 )
 
 type CommentReactionUsecase struct {
-	commentRepository        domain.ICommentRepository
+	commentRepository         domain.ICommentRepository
 	commentReactionRepository domain.ICommentReactionRepository
-	contextTimeout           time.Duration
+	contextTimeout            time.Duration
 }
 
-func NewCommentReactionUsecase(commentRepo domain.ICommentRepository, reactionRepo domain.ICommentReactionRepository, timeout time.Duration) domain.ICommentReactionUsecase {
+func NewCommentReactionUsecase(
+	commentRepo domain.ICommentRepository,
+	reactionRepo domain.ICommentReactionRepository,
+	timeout time.Duration,
+) domain.ICommentReactionUsecase {
 	return &CommentReactionUsecase{
-		commentRepository:        commentRepo,
+		commentRepository:         commentRepo,
 		commentReactionRepository: reactionRepo,
-		contextTimeout:           timeout,
+		contextTimeout:            timeout,
 	}
 }
 
@@ -32,53 +37,48 @@ func (cru *CommentReactionUsecase) LikeComment(ctx context.Context, commentID, u
 	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
 	defer cancel()
 
-	// Verify comment exists
-	_, err := cru.commentRepository.GetByID(ctx, commentID)
-	if err != nil {
-		return domain.ErrCommentNotFound
+	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
+		if errors.Is(err, domain.ErrCommentNotFound) {
+			return err
+		}
+		return err
 	}
 
-	// Check if user already has a reaction
-	existingReaction, err := cru.commentReactionRepository.GetByCommentAndUser(ctx, commentID, userID)
-	if err != nil && err != domain.ErrCommentReactionNotFound {
+	existing, err := cru.commentReactionRepository.GetByCommentAndUser(ctx, commentID, userID)
+	if err != nil && !errors.Is(err, domain.ErrCommentReactionNotFound) {
 		return err
 	}
 
 	now := time.Now()
 
-	if err == domain.ErrCommentReactionNotFound {
-		// Create new like reaction
-		reaction := domain.CommentReaction{
+	if errors.Is(err, domain.ErrCommentReactionNotFound) {
+		// No existing reaction, create one
+		newReaction := domain.CommentReaction{
 			Comment_id: commentID,
 			User_id:    userID,
-			Action:     1, // LIKE
+			Action:     1,
 			Created_at: now,
 			Updated_at: now,
 		}
-		err = cru.commentReactionRepository.Create(ctx, reaction)
-		if err != nil {
+		if err := cru.commentReactionRepository.Create(ctx, newReaction); err != nil {
 			return err
 		}
 	} else {
-		// Update existing reaction
-		if existingReaction.Action == 1 {
-			// Already liked, remove the like
-			err = cru.commentReactionRepository.Delete(ctx, commentID, userID)
-			if err != nil {
+		if existing.Action == 1 {
+			// Already liked, remove it
+			if err := cru.commentReactionRepository.Delete(ctx, commentID, userID); err != nil {
 				return err
 			}
 		} else {
-			// Change to like
-			existingReaction.Action = 1
-			existingReaction.Updated_at = now
-			err = cru.commentReactionRepository.Update(ctx, existingReaction)
-			if err != nil {
+			// Switch to like
+			existing.Action = 1
+			existing.Updated_at = now
+			if err := cru.commentReactionRepository.Update(ctx, existing); err != nil {
 				return err
 			}
 		}
 	}
 
-	// Update comment reaction counts
 	return cru.updateCommentReactionCounts(ctx, commentID)
 }
 
@@ -93,53 +93,45 @@ func (cru *CommentReactionUsecase) DislikeComment(ctx context.Context, commentID
 	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
 	defer cancel()
 
-	// Verify comment exists
-	_, err := cru.commentRepository.GetByID(ctx, commentID)
-	if err != nil {
-		return domain.ErrCommentNotFound
+	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
+		if errors.Is(err, domain.ErrCommentNotFound) {
+			return err
+		}
+		return err
 	}
 
-	// Check if user already has a reaction
-	existingReaction, err := cru.commentReactionRepository.GetByCommentAndUser(ctx, commentID, userID)
-	if err != nil && err != domain.ErrCommentReactionNotFound {
+	existing, err := cru.commentReactionRepository.GetByCommentAndUser(ctx, commentID, userID)
+	if err != nil && !errors.Is(err, domain.ErrCommentReactionNotFound) {
 		return err
 	}
 
 	now := time.Now()
 
-	if err == domain.ErrCommentReactionNotFound {
-		// Create new dislike reaction
-		reaction := domain.CommentReaction{
+	if errors.Is(err, domain.ErrCommentReactionNotFound) {
+		newReaction := domain.CommentReaction{
 			Comment_id: commentID,
 			User_id:    userID,
-			Action:     -1, // DISLIKE
+			Action:     -1,
 			Created_at: now,
 			Updated_at: now,
 		}
-		err = cru.commentReactionRepository.Create(ctx, reaction)
-		if err != nil {
+		if err := cru.commentReactionRepository.Create(ctx, newReaction); err != nil {
 			return err
 		}
 	} else {
-		// Update existing reaction
-		if existingReaction.Action == -1 {
-			// Already disliked, remove the dislike
-			err = cru.commentReactionRepository.Delete(ctx, commentID, userID)
-			if err != nil {
+		if existing.Action == -1 {
+			if err := cru.commentReactionRepository.Delete(ctx, commentID, userID); err != nil {
 				return err
 			}
 		} else {
-			// Change to dislike
-			existingReaction.Action = -1
-			existingReaction.Updated_at = now
-			err = cru.commentReactionRepository.Update(ctx, existingReaction)
-			if err != nil {
+			existing.Action = -1
+			existing.Updated_at = now
+			if err := cru.commentReactionRepository.Update(ctx, existing); err != nil {
 				return err
 			}
 		}
 	}
 
-	// Update comment reaction counts
 	return cru.updateCommentReactionCounts(ctx, commentID)
 }
 
@@ -154,19 +146,17 @@ func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID
 	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
 	defer cancel()
 
-	// Verify comment exists
-	_, err := cru.commentRepository.GetByID(ctx, commentID)
-	if err != nil {
-		return domain.ErrCommentNotFound
-	}
-
-	// Remove the reaction
-	err = cru.commentReactionRepository.Delete(ctx, commentID, userID)
-	if err != nil {
+	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
+		if errors.Is(err, domain.ErrCommentNotFound) {
+			return err
+		}
 		return err
 	}
 
-	// Update comment reaction counts
+	if err := cru.commentReactionRepository.Delete(ctx, commentID, userID); err != nil {
+		return err
+	}
+
 	return cru.updateCommentReactionCounts(ctx, commentID)
 }
 
@@ -181,17 +171,18 @@ func (cru *CommentReactionUsecase) GetUserReaction(ctx context.Context, commentI
 	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
 	defer cancel()
 
-	// Verify comment exists
-	_, err := cru.commentRepository.GetByID(ctx, commentID)
-	if err != nil {
-		return 0, domain.ErrCommentNotFound
+	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
+		if errors.Is(err, domain.ErrCommentNotFound) {
+			return 0, err
+		}
+		return 0, err
 	}
 
 	reaction, err := cru.commentReactionRepository.GetByCommentAndUser(ctx, commentID, userID)
+	if errors.Is(err, domain.ErrCommentReactionNotFound) {
+		return 0, nil // No reaction
+	}
 	if err != nil {
-		if err == domain.ErrCommentReactionNotFound {
-			return 0, nil // No reaction
-		}
 		return 0, err
 	}
 
@@ -199,10 +190,9 @@ func (cru *CommentReactionUsecase) GetUserReaction(ctx context.Context, commentI
 }
 
 func (cru *CommentReactionUsecase) updateCommentReactionCounts(ctx context.Context, commentID string) error {
-	likeCount, dislikeCount, err := cru.commentReactionRepository.GetReactionCounts(ctx, commentID)
+	likes, dislikes, err := cru.commentReactionRepository.GetReactionCounts(ctx, commentID)
 	if err != nil {
 		return err
 	}
-
-	return cru.commentRepository.UpdateReactionCounts(ctx, commentID, likeCount, dislikeCount)
-} 
+	return cru.commentRepository.UpdateReactionCounts(ctx, commentID, likes, dislikes)
+}
