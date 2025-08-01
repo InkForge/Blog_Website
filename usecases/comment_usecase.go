@@ -45,6 +45,8 @@ func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment
 	}
 
 	comment.Blog_id = blogID
+	comment.Like = 0
+	comment.Dislike = 0
 	comment.Created_at = time.Now()
 	comment.Updated_at = comment.Created_at
 
