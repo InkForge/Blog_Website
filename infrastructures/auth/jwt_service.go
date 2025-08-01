@@ -45,6 +45,18 @@ func (j *JWTService) GenerateRefreshToken(userID string, role string) (string, e
 	return token.SignedString(j.refreshSecret)
 }
 
+func (j *JWTService) GenerateVerificationToken(userID string) (string, error) {
+	claims := jwt.MapClaims{
+		"sub": userID,
+		
+		"exp": time.Now().Add(15 * time.Minute).Unix(), // Shorter expiry for access token
+		"iat": time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(j.accessSecret)
+}
+
+
 func (j *JWTService) ValidateToken(tokenString string, isRefresh bool) (string, error) {
 	secret := j.accessSecret
 	if isRefresh {
