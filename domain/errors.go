@@ -49,6 +49,11 @@ var (
 	ErrCursorIteration     = errors.New("database cursor iteration error")
 
 	// User-Specific Errors
+
+   
+    
+	ErrInvalidToken            = errors.New("invalid token")
+	ErrTokenRevocationFailed   = errors.New("token revocation failed")
 	ErrInvalidEmailFormat               = errors.New("invalid email format")
 	ErrEmailAlreadyExists               = errors.New("email already exists")
 	ErrUserNotFound                     = errors.New("user not found")
@@ -60,4 +65,5 @@ var (
 	ErrUserCreationFailed               = errors.New("user creation failed")
 	ErrDatabaseOperationFailed          = errors.New("database operation failed")
 	ErrOAuthUserCannotLoginWithPassword = errors.New("OAuth user cannot login with password")
+
 )

@@ -189,10 +189,10 @@ func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
 	if oauthUser == nil {
 		return nil
 	}
-	if field == nil && *oauthUser.FirstName != "" {
+	if oauthUser.FirstName != nil && *oauthUser.FirstName != "" {
 		return oauthUser.FirstName
 	}
-	return oauthUser.Name // fallback
+	return oauthUser.Name
 }
 
 func oauthUserPicture(oauthUser *domain.User) *string {
@@ -208,3 +208,27 @@ func oauthUserProvider(oauthUser *domain.User) string {
 	}
 	return oauthUser.Provider
 }
+
+
+
+//logout usecase
+func (uc *UserUseCase) Logout(refreshToken string) error {
+	//check if empty 
+    if refreshToken == "" {
+        return fmt.Errorf("%w", domain.ErrInvalidToken)
+    }
+	//call the revocation service 
+    if err := uc.JWTService.RevokeRefreshToken(refreshToken); err != nil {
+        return fmt.Errorf("%w: %v", domain.ErrTokenRevocationFailed, err)
+    }
+    return nil
+}
+
+
+
+
+//forgot password 
+
+
+//refresh token 
+
