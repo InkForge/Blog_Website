@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"time"
+
+	
 )
 
 type Role string
@@ -44,7 +46,7 @@ type IUserRepository interface {
 
 	SetEmailVerified(c context.Context, userID string) error
 	IsEmailVerified(c context.Context, userID string) (bool, error)
-
+  
 	CountByEmail(c context.Context, email string) (int64, error)
 	CountAll(c context.Context) (int64, error)
 }
@@ -62,7 +64,21 @@ type IJWTService interface {
 	GenerateVerificationToken(userID string) (string, error)
 	GenerateAccessToken(userID string, role string) (string, error)
 	GenerateRefreshToken(userID string, role string) (string, error)
-	ValidateToken(token string, isRefresh bool) (string, error)
+	ValidateRefreshToken(token string) (userID string, role string, err error)
+	ValidateAccessToken(token string) (userID string, role string, err error)
+	ValidateVerificationToken(token string) (userID string, err error)
+	GeneratePasswordResetToken(userID string) (string, error)
+	ValidatePasswordResetToken(token string) (userID string, err error)
+	RevokeRefreshToken(token string) error
+	IsRefreshTokenRevoked(token string) (bool, error)
+
+		
+}
+
+
+type IRevocationRepository interface {
+    RevokeRefreshToken(token string, expiresAt time.Time) error
+    IsRefreshTokenRevoked(token string) (bool, error)
 }
 
 type OAuth2ProviderConfig struct {
@@ -84,3 +100,4 @@ type IOAuth2Service interface {
 	GetAuthorizationURL(provider string, state string) (string, error)
 	Authenticate(ctx context.Context, provider string, code string) (*User, error)
 }
+

@@ -1,7 +1,6 @@
 package usecases
 
 import (
-
 	"fmt"
 	"regexp"
 	"time"
@@ -10,26 +9,25 @@ import (
 )
 
 type UserUseCase struct {
-	UserRepo domain.IUserRepository
-	PasswordService domain.IPasswordService
-	JWTService domain.IJWTService
+	UserRepo            domain.IUserRepository
+	PasswordService     domain.IPasswordService
+	JWTService          domain.IJWTService
 	NotificationService domain.INotificationService
-	Oauth2Service domain.IOAuth2Service
-	BaseURL string
+	BaseURL             string
 }
 
 //function to validate email
 
 func validateEmail(email string) bool {
-  re := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-  return re.MatchString(email)
-  
+	re := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	return re.MatchString(email)
+
 }
 
 //function to generate verification email body
 
 func generateVerificationEmailBody(verificationLink string) string {
-  return fmt.Sprintf(`
+	return fmt.Sprintf(`
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6;">
         <h2>Welcome!</h2>
@@ -45,15 +43,13 @@ func generateVerificationEmailBody(verificationLink string) string {
     </html>
   `, verificationLink)
 }
-func NewUserUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw domain.IJWTService, ns domain.INotificationService,bs string) *UserUseCase {
+func NewUserUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw domain.IJWTService, ns domain.INotificationService, bs string) *UserUseCase {
 	return &UserUseCase{
-		UserRepo:        repo,
-		PasswordService: ps,
-		JWTService:      jw,
+		UserRepo:            repo,
+		PasswordService:     ps,
+		JWTService:          jw,
 		NotificationService: ns,
-		BaseURL: bs,
-		
-
+		BaseURL:             bs,
 	}
 }
 
@@ -61,7 +57,7 @@ func NewUserUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw 
 
 // Register handles user registration, supporting both traditional and OAuth-based flows
 func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*domain.User, error) {
-	
+
 	var email string
 	if oauthUser != nil {
 		email = oauthUser.Email
@@ -105,16 +101,16 @@ func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*do
 
 	// construct user model
 	newUser := domain.User{
-		Role:             role,
-		Username:         chooseNonEmpty(input.Username, oauthUser),
-		FirstName:        chooseNonEmpty(input.FirstName, oauthUser),
-		LastName:         chooseNonEmpty(input.LastName, oauthUser),
-		Email:            email,
-		Password:         hashedPassword,
-		ProfilePicture:   oauthUserPicture(oauthUser),
-		Provider:         oauthUserProvider(oauthUser),
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
+		Role:           role,
+		Username:       chooseNonEmpty(input.Username, oauthUser),
+		FirstName:      chooseNonEmpty(input.FirstName, oauthUser),
+		LastName:       chooseNonEmpty(input.LastName, oauthUser),
+		Email:          email,
+		Password:       hashedPassword,
+		ProfilePicture: oauthUserPicture(oauthUser),
+		Provider:       oauthUserProvider(oauthUser),
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	// save user to the database
@@ -139,54 +135,53 @@ func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*do
 	return &newUser, nil
 }
 
+// login usecase
 
-func (uc *UserUseCase) Login(input domain.User)(string,string,*domain.User,error){
-	//validate email
+// Login handles user login usecase
+func (uc *UserUseCase) Login(input domain.User) (string, string, *domain.User, error) {
+	// validate email format
 	if !validateEmail(input.Email) {
-        return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
-    }
-	//find by email
+		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
+	}
+
+	// find user by email
 	user, err := uc.UserRepo.FindByEmail(input.Email)
-    if err != nil {
-        return "", "", nil, fmt.Errorf("%w: %v", domain.ErrInvalidCredentials, err)
-    }
+	if err != nil {
+		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrInvalidCredentials, err)
+	}
 
-	//check if email is verifed
-	ok := uc.UserRepo.IsVerified(input.Email)
-    if !ok {
-        return "", "", nil, fmt.Errorf("%w", domain.ErrEmailNotVerified)
-    }
+	// reject login if user is an OAuth user
+	if user.Provider != "" {
+		return "", "", nil, fmt.Errorf("%w", domain.ErrOAuthUserCannotLoginWithPassword)
+	}
 
-	//compare password
-	ok = uc.PasswordService.ComparePassword(*user.Password, *input.Password)
-    if !ok {
-        return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidCredentials)
-    }
+	// ensure email is verified
+	if !uc.UserRepo.IsVerified(input.Email) {
+		return "", "", nil, fmt.Errorf("%w", domain.ErrEmailNotVerified)
+	}
 
+	// compare password
+	ok := uc.PasswordService.ComparePassword(*user.Password, *input.Password)
+	if !ok {
+		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidCredentials)
+	}
 
-	//generate access token
-	accessToken, err := uc.JWTService.GenerateAccessToken(user.UserID, string(input.Role))
-    if err != nil {
-        return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
-    }
+	// generate access token
+	accessToken, err := uc.JWTService.GenerateAccessToken(user.UserID, string(user.Role))
+	if err != nil {
+		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
 
-	//generate refresh token
-
+	// generate refresh token
 	refreshToken, err := uc.JWTService.GenerateRefreshToken(user.UserID, string(user.Role))
-    if err != nil {
-        return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
-    }
+	if err != nil {
+		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
 
-
-	return accessToken,refreshToken,&user,nil
-	
-	
-
-
+	return accessToken, refreshToken, &user, nil
 }
 
-
-// helper functions 
+// helper functions
 func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
 	if field != nil {
 		return field
@@ -194,10 +189,10 @@ func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
 	if oauthUser == nil {
 		return nil
 	}
-	if field == nil && *oauthUser.FirstName != "" {
+	if oauthUser.FirstName != nil && *oauthUser.FirstName != "" {
 		return oauthUser.FirstName
 	}
-	return oauthUser.Name // fallback
+	return oauthUser.Name
 }
 
 func oauthUserPicture(oauthUser *domain.User) *string {
@@ -213,3 +208,106 @@ func oauthUserProvider(oauthUser *domain.User) string {
 	}
 	return oauthUser.Provider
 }
+
+
+
+//logout usecase
+func (uc *UserUseCase) Logout(refreshToken string) error {
+	//check if empty 
+    if refreshToken == "" {
+        return fmt.Errorf("%w", domain.ErrInvalidToken)
+    }
+	//call the revocation service 
+    if err := uc.JWTService.RevokeRefreshToken(refreshToken); err != nil {
+        return fmt.Errorf("%w: %v", domain.ErrTokenRevocationFailed, err)
+    }
+    return nil
+}
+
+
+
+
+//forgot password 
+func (uc *UserUseCase) ForgotPassword (email string) error{
+	if !validateEmail(email){
+		return fmt.Errorf("%w",domain.ErrInvalidEmailFormat)
+	}
+
+	user,err:=uc.UserRepo.FindByEmail(email)
+	if err !=nil{
+		return fmt.Errorf("%w:%v",domain.ErrUserNotFound,err)
+
+	}
+	//generate a reset token 
+	resetToken ,err:= uc.JWTService.GeneratePasswordResetToken(fmt.Sprint(user.UserID))
+	if err!=nil{
+		return fmt.Errorf("%w: %v",domain.ErrTokenGenerationFailed,err)
+
+	}
+	//reset link
+	resetLink:=fmt.Sprintf("%s/reset-password?token=%s",uc.BaseURL,resetToken)
+
+	emailBody := fmt.Sprintf(`
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>Password Reset Requested</h2>
+        <p>We received a request to reset your password. Click the link below to proceed. This link is one-time use and expires soon.</p>
+        <p>
+          <a href="%s" style="display: inline-block; padding: 10px 20px; background-color: #f39c12;
+          color: white; text-decoration: none; border-radius: 4px;">Reset Password</a>
+        </p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+        <p>— The Team</p>
+      </body>
+    </html>
+    `, resetLink)
+
+	if err:=uc.NotificationService.SendEmail(user.Email,"reset your password",emailBody);err!=nil{
+		fmt.Println("forgot password email send failed",err)
+	
+	}
+	return nil
+
+}
+
+
+//reset password -consume the reset token and set a new password
+func ( uc *UserUseCase) ResetPassword(resetToken,newPassword string) error{
+	
+	//check emptyness
+	if resetToken==""|| newPassword==""{
+		return fmt.Errorf("%w",domain.ErrInvalidInput)
+
+	}
+
+	//validate token and extract userID
+	userIDStr,err:=uc.JWTService.ValidatePasswordResetToken(resetToken)
+	if err !=nil{
+		return fmt.Errorf("%w:%v",domain.ErrInvalidToken,err)
+
+	}
+	//fetch user
+	user,err:=uc.UserRepo.FindByID(userIDStr)
+	if err !=nil{
+		return fmt.Errorf("%w:%v",domain.ErrDatabaseOperationFailed,err)
+
+	}
+	
+	//hash new password
+	hashed,err:=uc.PasswordService.HashPassword(newPassword)
+	if err!=nil{
+		return fmt.Errorf("%w:%v",domain.ErrPasswordHashingFailed,err)
+	}
+
+	user.Password=&hashed
+	user.UpdatedAt=time.Now()
+
+	//persist update 
+	if err :=uc.UserRepo.UpdateUser(user);err!=nil{
+		return fmt.Errorf("%w:%v",domain.ErrUserUpdateFailed,err)
+
+	}
+	return nil
+
+}
+
