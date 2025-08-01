@@ -14,6 +14,11 @@ var (
 	ErrInvalidCommentID     = errors.New("invalid comment ID")
 	ErrNoCommentChangesMade = errors.New("no changes were made to the comment")
 
+	// Comment Reaction-Specific Conditions
+	ErrCommentReactionNotFound = errors.New("comment reaction not found")
+	ErrInvalidReactionAction  = errors.New("invalid reaction action")
+	ErrReactionAlreadyExists  = errors.New("reaction already exists for this user and comment")
+
 	// Usecase-Specific Errors
 	ErrBlogRequired      = errors.New("blog cannot be nil")
 	ErrEmptyTitle        = errors.New("title is required")
@@ -25,6 +30,10 @@ var (
 	ErrCommentRequired   = errors.New("comment cannot be nil")
 	ErrEmptyCommentContent = errors.New("comment content is required")
 	ErrCommentIDRequired = errors.New("comment ID is required")
+
+	// Comment Reaction Usecase-Specific Errors
+	ErrCommentReactionRequired = errors.New("comment reaction cannot be nil")
+	ErrInvalidReactionType     = errors.New("invalid reaction type")
 
 	// Repository-Specific Errors
 
@@ -39,8 +48,6 @@ var (
 	ErrDeletingDocument    = errors.New("failed to delete document")
 	ErrCursorIteration     = errors.New("database cursor iteration error")
 
-
-	
 	// User-Specific Errors
 	ErrInvalidEmailFormat      = errors.New("invalid email format")
     ErrEmailAlreadyExists      = errors.New("email already exists")
@@ -52,5 +59,4 @@ var (
     ErrEmailSendingFailed      = errors.New("email sending failed")
     ErrUserCreationFailed      = errors.New("user creation failed")
     ErrDatabaseOperationFailed = errors.New("database operation failed")
-
 )
