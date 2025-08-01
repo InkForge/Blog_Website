@@ -67,5 +67,6 @@ var (
 	ErrOAuthUserCannotLoginWithPassword = errors.New("OAuth user cannot login with password")
 	ErrInvalidInput                     = errors.New("invalid input")
 	ErrUserUpdateFailed                 =errors.New("user update failed")
+	ErrEmailVerficationFailed           =errors.New("email verification failed")
 
 )

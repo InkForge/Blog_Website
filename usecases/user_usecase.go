@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"time"
@@ -14,6 +15,7 @@ type UserUseCase struct {
 	JWTService          domain.IJWTService
 	NotificationService domain.INotificationService
 	BaseURL             string
+	ContextTimeout      time.Duration
 }
 
 //function to validate email
@@ -43,20 +45,24 @@ func generateVerificationEmailBody(verificationLink string) string {
     </html>
   `, verificationLink)
 }
-func NewUserUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw domain.IJWTService, ns domain.INotificationService, bs string) *UserUseCase {
+func NewUserUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw domain.IJWTService, ns domain.INotificationService, bs string,timeout time.Duration) *UserUseCase {
 	return &UserUseCase{
 		UserRepo:            repo,
 		PasswordService:     ps,
 		JWTService:          jw,
 		NotificationService: ns,
 		BaseURL:             bs,
+		ContextTimeout: timeout,
 	}
 }
 
 //register usecase
 
 // Register handles user registration, supporting both traditional and OAuth-based flows
-func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*domain.User, error) {
+func (uc *UserUseCase) Register(ctx context.Context,input *domain.User, oauthUser *domain.User) (*domain.User, error) {
+	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
+	defer cancel()
+
 
 	var email string
 	if oauthUser != nil {
@@ -71,7 +77,7 @@ func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*do
 	}
 
 	// check if email already exists
-	count, err := uc.UserRepo.CountByEmail(email)
+	count, err := uc.UserRepo.CountByEmail(ctx,email)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
 	}
@@ -80,7 +86,7 @@ func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*do
 	}
 
 	// check if this is the first user
-	totalUsers, err := uc.UserRepo.CountAll()
+	totalUsers, err := uc.UserRepo.CountAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
 	}
@@ -114,7 +120,7 @@ func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*do
 	}
 
 	// save user to the database
-	err = uc.UserRepo.CreateUser(newUser)
+	err = uc.UserRepo.CreateUser(ctx,&newUser)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrUserCreationFailed, err)
 	}
@@ -138,14 +144,18 @@ func (uc *UserUseCase) Register(input *domain.User, oauthUser *domain.User) (*do
 // login usecase
 
 // Login handles user login usecase
-func (uc *UserUseCase) Login(input domain.User) (string, string, *domain.User, error) {
+func (uc *UserUseCase) Login(ctx context.Context,input domain.User) (string, string, *domain.User, error) {
+	ctx,cancel:=context.WithTimeout(ctx,uc.ContextTimeout)
+	defer cancel()
+
+
 	// validate email format
 	if !validateEmail(input.Email) {
 		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
 	}
 
 	// find user by email
-	user, err := uc.UserRepo.FindByEmail(input.Email)
+	user, err := uc.UserRepo.FindByEmail(ctx,input.Email)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrInvalidCredentials, err)
 	}
@@ -156,12 +166,16 @@ func (uc *UserUseCase) Login(input domain.User) (string, string, *domain.User, e
 	}
 
 	// ensure email is verified
-	if !uc.UserRepo.IsVerified(input.Email) {
+	ok,err:=uc.UserRepo.IsEmailVerified(ctx,input.UserID) 
+	if err!=nil{
+		return "","",nil,fmt.Errorf("%w",domain.ErrEmailVerficationFailed)
+	}
+	if !ok{
 		return "", "", nil, fmt.Errorf("%w", domain.ErrEmailNotVerified)
 	}
 
 	// compare password
-	ok := uc.PasswordService.ComparePassword(*user.Password, *input.Password)
+	ok = uc.PasswordService.ComparePassword(*user.Password, *input.Password)
 	if !ok {
 		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidCredentials)
 	}
@@ -178,7 +192,7 @@ func (uc *UserUseCase) Login(input domain.User) (string, string, *domain.User, e
 		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
 	}
 
-	return accessToken, refreshToken, &user, nil
+	return accessToken, refreshToken, user, nil
 }
 
 // helper functions
@@ -228,12 +242,15 @@ func (uc *UserUseCase) Logout(refreshToken string) error {
 
 
 //forgot password 
-func (uc *UserUseCase) ForgotPassword (email string) error{
+func (uc *UserUseCase) ForgotPassword (ctx context.Context,email string) error{
+	ctx,cancel:=context.WithTimeout(ctx,uc.ContextTimeout)
+	defer cancel()
+
 	if !validateEmail(email){
 		return fmt.Errorf("%w",domain.ErrInvalidEmailFormat)
 	}
 
-	user,err:=uc.UserRepo.FindByEmail(email)
+	user,err:=uc.UserRepo.FindByEmail(ctx,email)
 	if err !=nil{
 		return fmt.Errorf("%w:%v",domain.ErrUserNotFound,err)
 
@@ -272,7 +289,9 @@ func (uc *UserUseCase) ForgotPassword (email string) error{
 
 
 //reset password -consume the reset token and set a new password
-func ( uc *UserUseCase) ResetPassword(resetToken,newPassword string) error{
+func ( uc *UserUseCase) ResetPassword(ctx context.Context,resetToken,newPassword string) error{
+	ctx,cancel:=context.WithTimeout(ctx,uc.ContextTimeout)
+	defer cancel()
 	
 	//check emptyness
 	if resetToken==""|| newPassword==""{
@@ -287,7 +306,7 @@ func ( uc *UserUseCase) ResetPassword(resetToken,newPassword string) error{
 
 	}
 	//fetch user
-	user,err:=uc.UserRepo.FindByID(userIDStr)
+	user,err:=uc.UserRepo.FindByID(ctx,userIDStr)
 	if err !=nil{
 		return fmt.Errorf("%w:%v",domain.ErrDatabaseOperationFailed,err)
 
@@ -303,7 +322,7 @@ func ( uc *UserUseCase) ResetPassword(resetToken,newPassword string) error{
 	user.UpdatedAt=time.Now()
 
 	//persist update 
-	if err :=uc.UserRepo.UpdateUser(user);err!=nil{
+	if err :=uc.UserRepo.UpdateUser(ctx,user);err!=nil{
 		return fmt.Errorf("%w:%v",domain.ErrUserUpdateFailed,err)
 
 	}
