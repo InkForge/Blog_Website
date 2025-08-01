@@ -65,5 +65,7 @@ var (
 	ErrUserCreationFailed               = errors.New("user creation failed")
 	ErrDatabaseOperationFailed          = errors.New("database operation failed")
 	ErrOAuthUserCannotLoginWithPassword = errors.New("OAuth user cannot login with password")
+	ErrInvalidInput                     = errors.New("invalid input")
+	ErrUserUpdateFailed                 =errors.New("user update failed")
 
 )
