@@ -189,10 +189,10 @@ func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
 	if oauthUser == nil {
 		return nil
 	}
-	if field == nil && *oauthUser.FirstName != "" {
+	if oauthUser.FirstName != nil && *oauthUser.FirstName != "" {
 		return oauthUser.FirstName
 	}
-	return oauthUser.Name // fallback
+	return oauthUser.Name
 }
 
 func oauthUserPicture(oauthUser *domain.User) *string {
