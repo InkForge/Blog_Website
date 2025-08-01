@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Role string
 
@@ -12,22 +15,25 @@ const (
 
 
 type User struct {
-	UserID         string
-	
-	Username       *string
-	FirstName      *string
-	LastName       *string
-	Bio            *string
-	ProfilePicture *string
-	IsVerified 		bool
-	Email          string
-	Password     *string
-	RefreshToken   *string
-	AccessToken    *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	UserID         	string
+	Name            *string      // for oauth2 user
+	Username        *string
+	FirstName       *string
+	LastName        *string
+	Bio             *string
+	ProfilePicture  *string
+	IsVerified 	 	bool
+	Email           string
+	Password        *string
+	RefreshToken    *string
+	AccessToken     *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 
-	Role     Role
+	Provider        string      // for oauth2 user
+	RawData         map[string]interface{} 
+
+	Role            Role
 }
 
 
@@ -55,4 +61,25 @@ type IJWTService interface {
 	GenerateAccessToken(userID string, role string) (string, error)
 	GenerateRefreshToken(userID string, role string) (string, error)
 	ValidateToken(token string, isRefresh bool) (string, error)
+}
+
+type OAuth2ProviderConfig struct {
+	ClientID       string
+	ClientSecret   string
+	RedirectURL    string
+	Scopes         []string
+}
+
+// OAuth2 providers interface
+type IOAuth2Provider interface {
+	
+	Name() string   // provider name
+	Authenticate(ctx context.Context, code string) (*User, error)
+	GetAuthorizationURL(state string) string
+}
+
+type IOAuth2Service interface {
+	SupportedProviders() []string
+	GetAuthorizationURL(provider string, state string) (string, error)
+	Authenticate(ctx context.Context, provider string, code string) (*User, error)
 }
