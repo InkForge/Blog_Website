@@ -179,3 +179,24 @@ func (uc *UserUseCase) Login(input domain.User)(string,string,*domain.User,error
 
 
 }
+
+//logout usecase
+func (uc *UserUseCase) Logout(refreshToken string) error {
+	//check if empty 
+    if refreshToken == "" {
+        return fmt.Errorf("%w", domain.ErrInvalidToken)
+    }
+	//call the revocation service 
+    if err := uc.JWTService.RevokeRefreshToken(refreshToken); err != nil {
+        return fmt.Errorf("%w: %v", domain.ErrTokenRevocationFailed, err)
+    }
+    return nil
+}
+
+
+
+
+//forgot password 
+
+
+//refresh token 

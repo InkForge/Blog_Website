@@ -46,5 +46,7 @@ var (
     ErrEmailSendingFailed      = errors.New("email sending failed")
     ErrUserCreationFailed      = errors.New("user creation failed")
     ErrDatabaseOperationFailed = errors.New("database operation failed")
+	ErrInvalidToken            = errors.New("invalid token")
+	ErrTokenRevocationFailed   = errors.New("token revocation failed")
 
 )

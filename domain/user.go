@@ -54,5 +54,18 @@ type IJWTService interface {
 	GenerateVerificationToken(userID string)(string,error)
 	GenerateAccessToken(userID string, role string) (string, error)
 	GenerateRefreshToken(userID string, role string) (string, error)
-	ValidateToken(token string, isRefresh bool) (string, error)
+	ValidateRefreshToken(token string) (userID string, role string, err error)
+	ValidateAccessToken(token string) (userID string, role string, err error)
+	ValidateVerificationToken(token string) (userID string, err error)
+	GeneratePasswordResetToken(userID string) (string, error)
+	ValidatePasswordResetToken(token string) (userID string, err error)
+	RevokeRefreshToken(token string) error
+	IsRefreshTokenRevoked(token string) (bool, error)
+
+		
+}
+
+type IRevocationRepository interface {
+    RevokeRefreshToken(token string, expiresAt time.Time) error
+    IsRefreshTokenRevoked(token string) (bool, error)
 }
