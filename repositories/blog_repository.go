@@ -29,6 +29,7 @@ func (b *BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (str
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", domain.ErrInvalidBlogIdFormat, err)
 	}
+	
 	// if they came in empty
 	if mongoBlog.Created_at.IsZero() {
 		mongoBlog.Created_at = time.Now()
@@ -41,7 +42,8 @@ func (b *BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (str
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", domain.ErrInsertingDocuments, err)
 	}
-	// type assertion
+	
+	// Safe type assertion with error handling
 	objectID, ok := result.InsertedID.(primitive.ObjectID)
 	if !ok {
 		return "", fmt.Errorf("unexpected insertedID type: %T", result.InsertedID)
@@ -190,4 +192,56 @@ func (b *BlogMongoRepository) Search(ctx context.Context, title string, user_ids
 		return nil, domain.ErrCursorFailed
 	}
 	return blogs, nil
+}
+
+func (b *BlogMongoRepository) AddCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogID
+	}
+
+	filter := bson.M{"_id": objID}
+	update := bson.M{
+		"$push": bson.M{
+			"comment_ids": commentID,
+		},
+		"$set": bson.M{
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := b.blogCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	if result.MatchedCount == 0 {
+		return domain.ErrBlogNotFound
+	}
+	return nil
+}
+
+func (b *BlogMongoRepository) RemoveCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogID
+	}
+
+	filter := bson.M{"_id": objID}
+	update := bson.M{
+		"$pull": bson.M{
+			"comment_ids": commentID,
+		},
+		"$set": bson.M{
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := b.blogCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	if result.MatchedCount == 0 {
+		return domain.ErrBlogNotFound
+	}
+	return nil
 }
