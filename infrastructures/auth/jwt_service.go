@@ -1,6 +1,7 @@
 package infrastructures
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -173,4 +174,52 @@ func (j *JWTService) RevokeRefreshToken(tokenString string) error {
 
 func (j *JWTService) IsRefreshTokenRevoked(tokenString string) (bool, error) {
     return j.revocationRepo.IsRefreshTokenRevoked(tokenString)
+}
+
+// helper to extract exp claim as int64
+func extractExp(claims jwt.MapClaims) (int64, error) {
+	expVal, ok := claims["exp"]
+	if !ok {
+		return 0, errors.New("exp claim not present")
+	}
+
+	switch v := expVal.(type) {
+	case float64:
+		return int64(v), nil
+	case int64:
+		return v, nil
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return 0, errors.New("invalid exp claim format")
+		}
+		return n, nil
+	default:
+		return 0, errors.New("unexpected exp claim type")
+	}
+}
+
+// Generic: remaining duration for any token given its secret
+func (j *JWTService) GetTokenRemaining(tokenString string, secret []byte) (time.Duration, error) {
+	claims, err := j.parseToken(tokenString, secret)
+	if err != nil {
+		return 0, err
+	}
+
+	expUnix, err := extractExp(claims)
+	if err != nil {
+		return 0, err
+	}
+
+	expTime := time.Unix(expUnix, 0)
+	remaining := time.Until(expTime)
+	if remaining <= 0 {
+		return 0, errors.New("token already expired")
+	}
+	return remaining, nil
+}
+
+// Specific: access token remaining duration
+func (j *JWTService) GetAccessTokenRemaining(tokenString string) (time.Duration, error) {
+	return j.GetTokenRemaining(tokenString, j.accessSecret)
 }

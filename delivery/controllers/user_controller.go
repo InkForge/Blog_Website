@@ -32,7 +32,7 @@ func (uc *UserController) Register(c *gin.Context) {
 	defer cancel()
 
 	// create user via usecase
-	user, err := uc.userUseCase.Register(&input, nil)
+	user, err := uc.userUseCase.Register(ctx,&input, nil)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidEmailFormat):
