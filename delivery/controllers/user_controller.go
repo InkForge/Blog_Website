@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/InkForge/Blog_Website/domain"
-	"github.com/InkForge/Blog_Website/usecases"
 	"github.com/gin-gonic/gin"
 )
 
 // user register controller
 type UserController struct {
-	userUseCase usecases.UserUseCase // user usecase for user operations
+	userUseCase domain.IUserUseCase // user usecase for user operations
 }
 
 func (uc *UserController) Register(c *gin.Context) {
@@ -32,7 +31,7 @@ func (uc *UserController) Register(c *gin.Context) {
 	defer cancel()
 
 	// create user via usecase
-	user, err := uc.userUseCase.Register(&input, nil)
+	user, err := uc.userUseCase.Register(ctx, &input, nil)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidEmailFormat):
@@ -91,7 +90,7 @@ func (uc *UserController) Login(c *gin.Context) {
 	}
 
 	// perform login
-	accessToken, refreshToken, user, err := uc.userUseCase.Login(input)
+	accessToken, refreshToken, user, err := uc.userUseCase.Login(ctx, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidEmailFormat):
