@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"time"
 
@@ -27,9 +26,8 @@ func NewBlogMongoRepository(db *mongo.Database) *BlogMongoRepository {
 func (b *BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (string, error) {
 	mongoBlog, err := models.FromDomain(&blog)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", domain.ErrInvalidBlogIdFormat, err)
+		return "", domain.ErrInvalidBlogIdFormat
 	}
-	
 	// if they came in empty
 	if mongoBlog.Created_at.IsZero() {
 		mongoBlog.Created_at = time.Now()
@@ -40,13 +38,12 @@ func (b *BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (str
 
 	result, err := b.blogCollection.InsertOne(ctx, mongoBlog)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", domain.ErrInsertingDocuments, err)
+		return "", domain.ErrInsertingDocuments
 	}
-	
-	// Safe type assertion with error handling
+	// type assertion
 	objectID, ok := result.InsertedID.(primitive.ObjectID)
 	if !ok {
-		return "", fmt.Errorf("unexpected insertedID type: %T", result.InsertedID)
+		return "", domain.ErrInvalidBlogIdFormat
 	}
 
 	return objectID.Hex(), nil
@@ -121,7 +118,7 @@ func (b *BlogMongoRepository) Update(ctx context.Context, blog domain.Blog) erro
 
 	mongoBlog, err := models.FromDomain(&blog)
 	if err != nil {
-		return fmt.Errorf("%w: %v", domain.ErrInvalidBlogIdFormat, err)
+		return domain.ErrInvalidBlogIdFormat
 	}
 	mongoBlog.Updated_at = time.Now()
 
@@ -137,7 +134,7 @@ func (b *BlogMongoRepository) Update(ctx context.Context, blog domain.Blog) erro
 
 	result, err := b.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, update)
 	if err != nil {
-		return fmt.Errorf("%w: %v", domain.ErrUpdatingDocument, err)
+		return domain.ErrUpdatingDocument
 	}
 	if result.MatchedCount == 0 {
 		return domain.ErrBlogNotFound
@@ -156,7 +153,7 @@ func (b *BlogMongoRepository) Delete(ctx context.Context, blogID string) error {
 
 	result, err := b.blogCollection.DeleteOne(ctx, filter)
 	if err != nil {
-		return fmt.Errorf("%w: %v", domain.ErrDeletingDocument, err)
+		return domain.ErrDeletingDocument
 	}
 
 	if result.DeletedCount == 0 {
@@ -168,8 +165,8 @@ func (b *BlogMongoRepository) Delete(ctx context.Context, blogID string) error {
 
 func (b *BlogMongoRepository) Search(ctx context.Context, title string, user_ids []string) ([]domain.Blog, error) {
 	filter := bson.M{
-		"Title": title,
-		"User_id": bson.M{
+		"title": title,
+		"user_id": bson.M{
 			"$in": user_ids,
 		},
 	}
@@ -194,54 +191,107 @@ func (b *BlogMongoRepository) Search(ctx context.Context, title string, user_ids
 	return blogs, nil
 }
 
-func (b *BlogMongoRepository) AddCommentID(ctx context.Context, blogID, commentID string) error {
+// related to Blog Reactions
+
+func (r *BlogMongoRepository) IncrementLike(ctx context.Context, blogID string) error {
 	objID, err := primitive.ObjectIDFromHex(blogID)
 	if err != nil {
-		return domain.ErrInvalidBlogID
+		return domain.ErrInvalidBlogIdFormat
 	}
 
-	filter := bson.M{"_id": objID}
-	update := bson.M{
-		"$push": bson.M{
-			"comment_ids": commentID,
-		},
-		"$set": bson.M{
-			"updated_at": time.Now(),
-		},
-	}
-
-	result, err := b.blogCollection.UpdateOne(ctx, filter, update)
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$inc": bson.M{"like_count": 1},
+	})
 	if err != nil {
 		return domain.ErrUpdatingDocument
-	}
-	if result.MatchedCount == 0 {
-		return domain.ErrBlogNotFound
 	}
 	return nil
 }
 
-func (b *BlogMongoRepository) RemoveCommentID(ctx context.Context, blogID, commentID string) error {
+func (r *BlogMongoRepository) DecrementLike(ctx context.Context, blogID string) error {
 	objID, err := primitive.ObjectIDFromHex(blogID)
 	if err != nil {
-		return domain.ErrInvalidBlogID
+		return domain.ErrInvalidBlogIdFormat
 	}
 
-	filter := bson.M{"_id": objID}
-	update := bson.M{
-		"$pull": bson.M{
-			"comment_ids": commentID,
-		},
-		"$set": bson.M{
-			"updated_at": time.Now(),
-		},
-	}
-
-	result, err := b.blogCollection.UpdateOne(ctx, filter, update)
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$inc": bson.M{"like_count": -1},
+	})
 	if err != nil {
 		return domain.ErrUpdatingDocument
 	}
-	if result.MatchedCount == 0 {
-		return domain.ErrBlogNotFound
+	return nil
+}
+
+func (r *BlogMongoRepository) IncrementDisLike(ctx context.Context, blogID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$inc": bson.M{"dislike_count": 1},
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	return nil
+}
+
+func (r *BlogMongoRepository) DecrementDisLike(ctx context.Context, blogID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$inc": bson.M{"dislike_count": -1},
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	return nil
+}
+
+func (r *BlogMongoRepository) ToggleLikeDislikeCounts(ctx context.Context, blogID string, to_like, to_dislike int) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	update := bson.M{}
+	if to_like != 0 {
+		update["like_count"] = to_like
+	}
+	if to_dislike != 0 {
+		update["dislike_count"] = to_dislike
+	}
+
+	if len(update) == 0 {
+		return nil
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$inc": update,
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	return nil
+}
+
+// related to blog_view
+func (r *BlogMongoRepository) IncrementView(ctx context.Context, blogID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$inc": bson.M{"view_count": 1},
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
 	}
 	return nil
 }
