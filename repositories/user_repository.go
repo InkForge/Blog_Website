@@ -180,6 +180,26 @@ func (ur *UserRepository) FindByEmail(ctx context.Context, email string) (*domai
 	return &user, nil
 }
 
+
+// FindByUsername query the user collection based on specified username
+func (ur *UserRepository) FindByUserName(ctx context.Context, username string) (*domain.User, error) {
+	filter := bson.D{{Key: "username", Value: username}}
+	result := ur.userCollection.FindOne(ctx, filter)
+
+	if err := consolidateUserError(result.Err()); err != nil {
+		return nil, err
+	}
+
+	var userModel models.User
+	if err := result.Decode(&userModel); err != nil {
+		return nil, domain.ErrDecodingDocument
+	}
+
+	user := userModel.ToDomain()
+
+	return &user, nil
+}
+
 // CountByEmail counts how many entry exist in the collection with the specified email
 func (ur *UserRepository) CountByEmail(ctx context.Context, email string) (int64, error) {
 	filter := bson.D{{Key: "email", Value: email}}
