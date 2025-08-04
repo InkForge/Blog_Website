@@ -373,7 +373,7 @@ func (uc *AuthUseCase) RequestPasswordReset(ctx context.Context,email string) er
     `, resetLink)
 
 	if err:=uc.NotificationService.SendEmail(user.Email,"reset your password",emailBody);err!=nil{
-		fmt.Println("forgot password email send failed",err)
+		return err
 	
 	}
 	return nil
