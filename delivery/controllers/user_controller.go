@@ -130,3 +130,33 @@ func (uc *UserController) Login(c *gin.Context) {
 		"user":          safeUser,
 	})
 }
+
+// user logout controller
+func (uc *UserController) Logout(c *gin.Context) {
+
+	var payload struct {
+		RefreshToken string `json:"refresh_token" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request payload",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	if err := uc.userUseCase.Logout(payload.RefreshToken); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidToken):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or missing token"})
+		case errors.Is(err, domain.ErrTokenRevocationFailed):
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke token"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Logout failed", "details": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User logged out successfully"})
+}
