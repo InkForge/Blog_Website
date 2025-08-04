@@ -71,6 +71,13 @@ var (
 	ErrInvalidInput                     = errors.New("invalid input")
 	ErrUserUpdateFailed                 =errors.New("user update failed")
 	ErrEmailVerficationFailed           =errors.New("email verification failed")
+	ErrTokenVerificationFailed          =errors.New("token verification failed")
+
+
+	ErrPasswordMismatch        = errors.New("passwords do not match")
+    ErrUserVerified            = errors.New("user already verified")
+	ErrGetTokenExpiryFailed =errors.New("failed to get token expiration time")
+
 
 	// ─── Generic Errors ────────────────────────────────────────────────────
 	ErrInternalServerError = errors.New("internal server error")
