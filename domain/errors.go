@@ -68,8 +68,9 @@ var (
 	ErrUserCreationFailed             = errors.New("user creation failed")
 	ErrDatabaseOperationFailed        = errors.New("database operation failed")
 	ErrOAuthUserCannotLoginWithPassword = errors.New("OAuth user cannot login with password")
-	ErrInvalidInput                   = errors.New("invalid input")
-	ErrUserUpdateFailed               = errors.New("user update failed")
+	ErrInvalidInput                     = errors.New("invalid input")
+	ErrUserUpdateFailed                 =errors.New("user update failed")
+	ErrEmailVerficationFailed           =errors.New("email verification failed")
 
 	// ─── Generic Errors ────────────────────────────────────────────────────
 	ErrInternalServerError = errors.New("internal server error")
