@@ -49,6 +49,7 @@ type IUserRepository interface {
 	CountAll(c context.Context) (int64, error)
 
 	FindByUserName(c context.Context, username string) (*User, error)
+	UpdateTokens(c context.Context, userID string, accessToken, refreshToken string) error
 }
 
 // user usecase interface

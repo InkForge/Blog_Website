@@ -122,6 +122,42 @@ func (ac *AuthController) Login(c *gin.Context) {
 	})
 }
 
+// forgot password controller
+func (au *AuthController) ForgotPassword(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var input struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	if err := au.AuthUsecase.ForgotPassword(ctx, input.Email); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidEmailFormat):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
+		case errors.Is(err, domain.ErrUserNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		case errors.Is(err, domain.ErrTokenGenerationFailed):
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate reset token"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Password reset request failed", "details": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password reset email sent if the email exists in our system",
+	})
+}
+
+
 // ChangePassword handles password change requests.
 // It requires the user to be authenticated and to provide the old and new passwords.
 // Returns 400 for invalid input, 401 if user is unauthenticated or old password is wrong.
