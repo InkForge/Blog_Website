@@ -11,13 +11,14 @@ import (
 type BlogUsecase struct {
 	blogRepo           domain.IBlogRepository
 	blogViewRepo       domain.IBlogViewRepository
-	transactionManager domain.TransactionManager
+	transactionManager domain.ITransactionManager
 }
 
-func NewBlogUsecase(blogRepo domain.IBlogRepository, blogViewRepo domain.IBlogViewRepository) *BlogUsecase {
+func NewBlogUsecase(blogRepo domain.IBlogRepository, blogViewRepo domain.IBlogViewRepository, transactionManager domain.ITransactionManager) domain.IBlogUsecase {
 	return &BlogUsecase{
-		blogRepo:     blogRepo,
-		blogViewRepo: blogViewRepo,
+		blogRepo:           blogRepo,
+		blogViewRepo:       blogViewRepo,
+		transactionManager: transactionManager,
 	}
 }
 
