@@ -77,7 +77,8 @@ var (
 	ErrPasswordMismatch        = errors.New("passwords do not match")
     ErrUserVerified            = errors.New("user already verified")
 	ErrGetTokenExpiryFailed =errors.New("failed to get token expiration time")
-
+	ErrWeakPassword         = errors.New("password is too weak")
+	ErrInvalidRole          = errors.New("invalid role specified")
 
 	// ─── Generic Errors ────────────────────────────────────────────────────
 	ErrInternalServerError = errors.New("internal server error")

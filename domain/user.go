@@ -49,9 +49,24 @@ type IUserRepository interface {
 	CountAll(c context.Context) (int64, error)
 
 	FindByUserName(c context.Context, username string) (*User, error)
+
+	GetAllUsers( c context.Context)([]User,error)
+	SearchUsers( c context.Context,q string)([]User,error)
+
+	UpdateTokens(c context.Context,userID string,accesToken string,refreshToken string)(error)
+	UpdateRole( c context.Context, userID string, role string) error
+
 }
 
 // user usecase interface
 type IUserUseCase interface {
+	GetUserByID(c context.Context,userID string)(User,error)
+	GetUsers(c context.Context)([]User,error)
+	DeleteUserByID(c context.Context,userID string)(error)
+	SearchUsers(c context.Context,q string)([]User,error)
+	GetMyData(c context.Context,userID string)(*User,error)
+	UpdateProfile(c context.Context ,user *User)(error)
+	PromoteToAdmin(c context.Context, userID string) error
+	DemoteFromAdmin(ctx context.Context, userID string) error
 	
 }
