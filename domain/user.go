@@ -47,4 +47,11 @@ type IUserRepository interface {
 
 	CountByEmail(c context.Context, email string) (int64, error)
 	CountAll(c context.Context) (int64, error)
+
+	FindByUserName(c context.Context, username string) (*User, error)
+}
+
+// user usecase interface
+type IUserUseCase interface {
+	
 }

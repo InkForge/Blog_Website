@@ -9,10 +9,11 @@ type IAuthUsecase interface {
 	// Register registers a new user using provided user data.
 	// It should validate the input, hash the password, store the user in the database,
 	// and send a verification email.
-	//   Register(ctx context.Context, user User) (*User, error)
-	//   // Login authenticates a user using an identifier (username or email) and password.
-	//   // It should verify credentials, check if the email is verified, and return the user data.
-	//   Login(ctx context.Context, identifier, password string) (*User, error)
+	Register(ctx context.Context, user, oauthUser *User) (*User, error)
+	
+	// Login authenticates a user using an identifier (username or email) and password.
+	// It should verify credentials, check if the email is verified, and return accesstoken, refreshtoken, user data.
+	Login(ctx context.Context, input *User) (string, string, *User, error)
 
 	// Logout logs out a user by invalidating their session or deleting the stored refresh token.
 	// This ensures the user can no longer refresh their access token.

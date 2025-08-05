@@ -29,169 +29,173 @@ func NewAuthUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw 
 	}
 }
 
-//register usecase
+// register usecase
 
 // Register handles user registration, supporting both traditional and OAuth-based flows
-// func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUser *domain.User) (*domain.User, error) {
-// 	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
-// 	defer cancel()
+func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUser *domain.User) (*domain.User, error) {
+	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
+	defer cancel()
 
-// 	var email string
-// 	if oauthUser != nil {
-// 		email = oauthUser.Email
-// 	} else {
-// 		email = input.Email
-// 	}
+	var email string
+	if oauthUser != nil {
+		email = oauthUser.Email
+	} else {
+		email = input.Email
+	}
 
-// 	// email format validation
-// 	if !validateEmail(email) {
-// 		return nil, fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
-// 	}
+	// email format validation
+	if !validateEmail(email) {
+		return nil, fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
+	}
 
-// 	// check if email already exists
-// 	count, err := uc.UserRepo.CountByEmail(ctx,email)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
-// 	}
-// 	if count > 0 {
-// 		return nil, fmt.Errorf("%w", domain.ErrEmailAlreadyExists)
-// 	}
+	// check if email already exists
+	count, err := uc.UserRepo.CountByEmail(ctx,email)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
+	}
+	if count > 0 {
+		return nil, fmt.Errorf("%w", domain.ErrEmailAlreadyExists)
+	}
 
-// 	// check if this is the first user
-// 	totalUsers, err := uc.UserRepo.CountAll(ctx)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
-// 	}
+	// check if this is the first user
+	totalUsers, err := uc.UserRepo.CountAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
+	}
 
-// 	role := domain.RoleUser
-// 	if totalUsers == 0 {
-// 		role = domain.RoleAdmin
-// 	}
+	role := domain.RoleUser
+	if totalUsers == 0 {
+		role = domain.RoleAdmin
+	}
 
-// 	var hashedPassword *string
-// 	if oauthUser == nil {
-// 		hashed, err := uc.PasswordService.HashPassword(*input.Password)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("%w: %v", domain.ErrPasswordHashingFailed, err)
-// 		}
-// 		hashedPassword = &hashed
-// 	}
+	var hashedPassword *string
+	if oauthUser == nil {
+		hashed, err := uc.PasswordService.HashPassword(*input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", domain.ErrPasswordHashingFailed, err)
+		}
+		hashedPassword = &hashed
+	}
 
-// 	// construct user model
-// 	newUser := domain.User{
-// 		Role:           role,
-// 		Username:       chooseNonEmpty(input.Username, oauthUser),
-// 		FirstName:      chooseNonEmpty(input.FirstName, oauthUser),
-// 		LastName:       chooseNonEmpty(input.LastName, oauthUser),
-// 		Email:          email,
-// 		Password:       hashedPassword,
-// 		ProfilePicture: oauthUserPicture(oauthUser),
-// 		Provider:       oauthUserProvider(oauthUser),
-// 		CreatedAt:      time.Now(),
-// 		UpdatedAt:      time.Now(),
-// 	}
+	// construct user model
+	newUser := domain.User{
+		Role:           role,
+		Username:       chooseNonEmpty(input.Username, oauthUser),
+		FirstName:      chooseNonEmpty(input.FirstName, oauthUser),
+		LastName:       chooseNonEmpty(input.LastName, oauthUser),
+		Email:          email,
+		Password:       hashedPassword,
+		ProfilePicture: oauthUserPicture(oauthUser),
+		Provider:       oauthUserProvider(oauthUser),
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
 
-// 	// save user to the database
-// 	err = uc.UserRepo.CreateUser(ctx,&newUser)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("%w: %v", domain.ErrUserCreationFailed, err)
-// 	}
+	// save user to the database
+	err = uc.UserRepo.CreateUser(ctx,&newUser)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrUserCreationFailed, err)
+	}
 
-// 	// only send verification email if not registered via OAuth
-// 	if oauthUser == nil {
-// 		verificationToken, err := uc.JWTService.GenerateVerificationToken(fmt.Sprint(newUser.UserID))
-// 		if err != nil {
-// 			return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
-// 		}
-// 		verificationLink := fmt.Sprintf("%s/verify?token=%s", uc.BaseURL, verificationToken)
-// 		emailBody := generateVerificationEmailBody(verificationLink)
-// 		if err = uc.NotificationService.SendEmail(newUser.Email, "Verify Your Email Address", emailBody); err != nil {
-// 			fmt.Println("email sending failed:", err)
-// 		}
-// 	}
+	// only send verification email if not registered via OAuth
+	if oauthUser == nil {
+		verificationToken, err := uc.JWTService.GenerateVerificationToken(fmt.Sprint(newUser.UserID))
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+		}
+		verificationLink := fmt.Sprintf("%s/verify?token=%s", uc.BaseURL, verificationToken)
+		emailBody := generateVerificationEmailBody(verificationLink)
+		if err = uc.NotificationService.SendEmail(newUser.Email, "Verify Your Email Address", emailBody); err != nil {
+			fmt.Println("email sending failed:", err)
+		}
+	}
 
-// 	return &newUser, nil
-// }
+	return &newUser, nil
+}
 
-// // login usecase
+// login usecase
 
-// // Login handles user login usecase
-// func (uc *AuthUseCase) Login(ctx context.Context,input domain.User) (*domain.User, error) {
-// 	ctx,cancel:=context.WithTimeout(ctx,uc.ContextTimeout)
-// 	defer cancel()
+// Login handles user login usecase
+func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (string, string, *domain.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
+	defer cancel()
 
-// 	// validate email format
-// 	if !validateEmail(input.Email) {
-// 		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
-// 	}
+	// find user by email or username
+	var user *domain.User
+	var err error
 
-// 	// find user by email
-// 	user, err := uc.UserRepo.FindByEmail(ctx,input.Email)
-// 	if err != nil {
-// 		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrInvalidCredentials, err)
-// 	}
+	if validateEmail(input.Email) {
+		user, err = uc.UserRepo.FindByEmail(ctx, input.Email)
+	} else {
+		user, err = uc.UserRepo.FindByUserName(ctx, *input.Username)
+	}
 
-// 	// reject login if user is an OAuth user
-// 	if user.Provider != "" {
-// 		return "", "", nil, fmt.Errorf("%w", domain.ErrOAuthUserCannotLoginWithPassword)
-// 	}
+	if err != nil {
+		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrInvalidCredentials, err)
+	}
 
-// 	// ensure email is verified
-// 	ok,err:=uc.UserRepo.IsEmailVerified(ctx,input.UserID)
-// 	if err!=nil{
-// 		return "","",nil,fmt.Errorf("%w",domain.ErrEmailVerficationFailed)
-// 	}
-// 	if !ok{
-// 		return "", "", nil, fmt.Errorf("%w", domain.ErrEmailNotVerified)
-// 	}
+	// reject login if registered via OAuth
+	if user.Provider != "" {
+		return "", "", nil, fmt.Errorf("%w", domain.ErrOAuthUserCannotLoginWithPassword)
+	}
 
-// 	// compare password
-// 	ok = uc.PasswordService.ComparePassword(*user.Password, *input.Password)
-// 	if !ok {
-// 		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidCredentials)
-// 	}
+	// check if email is verified
+	isVerified, err := uc.UserRepo.IsEmailVerified(ctx, user.UserID)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("%w", domain.ErrEmailVerficationFailed)
+	}
+	if !isVerified {
+		return "", "", nil, fmt.Errorf("%w", domain.ErrEmailNotVerified)
+	}
 
-// 	// generate access token
-// 	accessToken, err := uc.JWTService.GenerateAccessToken(user.UserID, string(user.Role))
-// 	if err != nil {
-// 		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
-// 	}
+	// compare passwords
+	if user.Password == nil || !uc.PasswordService.ComparePassword(*user.Password, *user.Password) {
+		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidCredentials)
+	}
 
-// 	// generate refresh token
-// 	refreshToken, err := uc.JWTService.GenerateRefreshToken(user.UserID, string(user.Role))
-// 	if err != nil {
-// 		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
-// 	}
+	// generate access token
+	accessToken, err := uc.JWTService.GenerateAccessToken(user.UserID, string(user.Role))
+	if err != nil {
+		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
 
-// 	return accessToken, refreshToken, user, nil
-// }
-// helper functions
-// func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
-// 	if field != nil {
-// 		return field
-// 	}
-// 	if oauthUser == nil {
-// 		return nil
-// 	}
-// 	if oauthUser.FirstName != nil && *oauthUser.FirstName != "" {
-// 		return oauthUser.FirstName
-// 	}
-// 	return oauthUser.Name
-// }
+	// generate refresh token
+	refreshToken, err := uc.JWTService.GenerateRefreshToken(user.UserID, string(user.Role))
+	if err != nil {
+		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
 
-// func oauthUserPicture(oauthUser *domain.User) *string {
-// 	if oauthUser == nil || *oauthUser.ProfilePicture == "" {
-// 		return nil
-// 	}
-// 	return oauthUser.ProfilePicture
-// }
+	return accessToken, refreshToken, user, nil
+}
 
-// func oauthUserProvider(oauthUser *domain.User) string {
-// 	if oauthUser == nil {
-// 		return ""
-// 	}
-// 	return oauthUser.Provider
-// }
+
+//helper functions
+func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
+	if field != nil {
+		return field
+	}
+	if oauthUser == nil {
+		return nil
+	}
+	if oauthUser.FirstName != nil && *oauthUser.FirstName != "" {
+		return oauthUser.FirstName
+	}
+	return oauthUser.Name
+}
+
+func oauthUserPicture(oauthUser *domain.User) *string {
+	if oauthUser == nil || *oauthUser.ProfilePicture == "" {
+		return nil
+	}
+	return oauthUser.ProfilePicture
+}
+
+func oauthUserProvider(oauthUser *domain.User) string {
+	if oauthUser == nil {
+		return ""
+	}
+	return oauthUser.Provider
+}
 
 //logout usecase
 func (uc *AuthUseCase) Logout(ctx context.Context, userID string) error {

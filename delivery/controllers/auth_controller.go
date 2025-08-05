@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/InkForge/Blog_Website/domain"
 	"github.com/gin-gonic/gin"
@@ -10,6 +12,114 @@ import (
 
 type AuthController struct {
 	AuthUsecase domain.IAuthUsecase
+}
+
+// user register controller
+func (ac *AuthController) Register(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var input domain.User
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		return
+	}
+
+	// context timeout handling
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	// create user via usecase
+
+	user, err := ac.AuthUsecase.Register(ctx, &input, nil)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidEmailFormat):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
+		case errors.Is(err, domain.ErrEmailAlreadyExists):
+			c.JSON(http.StatusConflict, gin.H{"error": "Email already exists"})
+		case errors.Is(err, domain.ErrPasswordHashingFailed):
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
+		case errors.Is(err, domain.ErrTokenGenerationFailed):
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate verification token"})
+		case errors.Is(err, domain.ErrUserCreationFailed):
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "User could not be created"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong", "details": err.Error()})
+		}
+		return
+	}
+
+	// prepare safe response - omit sensitive info
+	response := gin.H{
+		"message":  "User registered successfully",
+		"user_id":  user.UserID,
+		"email":    user.Email,
+		"username": user.Username,
+		"role":     user.Role,
+		"provider": user.Provider,
+	}
+
+	c.JSON(http.StatusCreated, response)
+}
+
+// user login controller
+func (ac *AuthController) Login(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var loginUser domain.User
+
+	// bind and validate input
+	if err := c.ShouldBindJSON(&loginUser); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// perform login
+	accessToken, refreshToken, user, err := ac.AuthUsecase.Login(ctx, &loginUser)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidEmailFormat):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
+		case errors.Is(err, domain.ErrInvalidCredentials):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		case errors.Is(err, domain.ErrOAuthUserCannotLoginWithPassword):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This account uses OAuth login only"})
+		case errors.Is(err, domain.ErrEmailNotVerified):
+			c.JSON(http.StatusForbidden, gin.H{"error": "Please verify your email address first"})
+		case errors.Is(err, domain.ErrTokenGenerationFailed):
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Login failed",
+				"details": err.Error(),
+			})
+		}
+		return
+	}
+
+	// prepare sanitized user response
+	safeUser := gin.H{
+		"user_id":   user.UserID,
+		"email":     user.Email,
+		"username":  user.Username,
+		"firstName": user.FirstName,
+		"lastName":  user.LastName,
+		"role":      user.Role,
+		"provider":  user.Provider,
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Login successful",
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user":          safeUser,
+	})
 }
 
 // ChangePassword handles password change requests.
