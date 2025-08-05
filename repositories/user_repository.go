@@ -181,7 +181,6 @@ func (ur *UserRepository) FindByEmail(ctx context.Context, email string) (*domai
 	return &user, nil
 }
 
-
 // FindByUsername query the user collection based on specified username
 func (ur *UserRepository) FindByUserName(ctx context.Context, username string) (*domain.User, error) {
 	filter := bson.D{{Key: "username", Value: username}}
@@ -211,6 +210,34 @@ func (ur *UserRepository) CountByEmail(ctx context.Context, email string) (int64
 func (ur *UserRepository) CountAll(ctx context.Context) (int64, error) {
 	return ur.userCollection.CountDocuments(ctx, bson.D{})
 }
+// FindUsersByName searches users by first or last name (case-insensitive, partial match)
+func (ur *UserRepository) FindUsersByName(ctx context.Context, name string) ([]*domain.User, error) {
+	filter := bson.D{
+		{Key: "$or", Value: bson.A{
+			bson.D{{Key: "first_name", Value: bson.D{{Key: "$regex", Value: name}, {Key: "$options", Value: "i"}}}},
+			bson.D{{Key: "last_name", Value: bson.D{{Key: "$regex", Value: name}, {Key: "$options", Value: "i"}}}},
+		}},
+	}
+	cursor, err := ur.userCollection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []*domain.User
+	for cursor.Next(ctx) {
+		var userModel models.User
+		if err := cursor.Decode(&userModel); err != nil {
+			return nil, err
+		}
+		user := userModel.ToDomain()
+		users = append(users, &user)
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
 
 // UpdateTokens updates only the access and refresh tokens for a user
 func (ur *UserRepository) UpdateTokens(ctx context.Context, userID string, accessToken, refreshToken string) error {
@@ -235,69 +262,62 @@ func (ur *UserRepository) UpdateTokens(ctx context.Context, userID string, acces
 	return nil
 }
 
-
-//get all users 
-func (ur *UserRepository) GetAllUsers(ctx context.Context)([]domain.User,error){
+// GetAllUsers returns all users
+func (ur *UserRepository) GetAllUsers(ctx context.Context) ([]domain.User, error) {
 	var users []domain.User
-	filter:=bson.M{}
+	filter := bson.M{}
 
-	cursor,err:=ur.userCollection.Find(ctx,filter)
-	if err!=nil{
-		return nil,err
+	cursor, err := ur.userCollection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
 	}
-
-	defer cursor.Close(ctx)
-	
-	for cursor.Next(ctx){
-		var user models.User
-		if err:=cursor.Decode(&user);err!=nil{
-			return nil,domain.ErrDecodingDocument
-		}
-		users=append(users, user.ToDomain())
-	}
-	if err :=cursor.Err();err!=nil{
-		return nil,domain.ErrCursorIteration
-	}
-	return users,nil
-
-	
-}
-//search users based on query
-func (ur *UserRepository)SearchUsers(ctx context.Context,q string)([]domain.User,error){
-	//case insensetive regext quey on username or email
-	filter:=bson.M{
-		"$or":[]bson.M{
-			{"username":bson.M{"$regex":q,"$options":"i"}},
-			{"email":bson.M{"$regex":q,"$options":"i"}},
-		},
-	}
-
-	//only project safe fields
-	projection:=bson.M{
-		"password":0,
-	}
-	cursor,err:=ur.userCollection.Find(ctx,filter,options.Find().SetProjection(projection))
-	if err!=nil{
-		return nil,err
-	}
-
 	defer cursor.Close(ctx)
 
-	var users []domain.User
-
-	for cursor.Next(ctx){
+	for cursor.Next(ctx) {
 		var user models.User
-		if err:=cursor.Decode(&user);err !=nil{
-			return nil,domain.ErrDecodingDocument
+		if err := cursor.Decode(&user); err != nil {
+			return nil, domain.ErrDecodingDocument
 		}
 		users = append(users, user.ToDomain())
 	}
-	if err:=cursor.Err();err!=nil{
-		return nil,domain.ErrCursorIteration
+	if err := cursor.Err(); err != nil {
+		return nil, domain.ErrCursorIteration
+	}
+	return users, nil
+}
+
+// SearchUsers performs a case-insensitive regex search on username or email
+func (ur *UserRepository) SearchUsers(ctx context.Context, q string) ([]domain.User, error) {
+	filter := bson.M{
+		"$or": []bson.M{
+			{"username": bson.M{"$regex": q, "$options": "i"}},
+			{"email": bson.M{"$regex": q, "$options": "i"}},
+		},
 	}
 
-	return users,nil
+	// Only project safe fields (e.g., exclude password)
+	projection := bson.M{
+		"password": 0,
+	}
+	cursor, err := ur.userCollection.Find(ctx, filter, options.Find().SetProjection(projection))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
 
+	var users []domain.User
+	for cursor.Next(ctx) {
+		var user models.User
+		if err := cursor.Decode(&user); err != nil {
+			return nil, domain.ErrDecodingDocument
+		}
+		users = append(users, user.ToDomain())
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, domain.ErrCursorIteration
+	}
+
+	return users, nil
 }
 
 // UpdateRole updates the role of a user. Only "admin" or "user" roles are allowed.
@@ -327,9 +347,3 @@ func (ur *UserRepository) UpdateRole(ctx context.Context, userID string, role st
 
 	return nil
 }
-
-
-
-
-
-

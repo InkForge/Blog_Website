@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type BlogMongoRepository struct {
@@ -49,29 +50,40 @@ func (b *BlogMongoRepository) Create(ctx context.Context, blog domain.Blog) (str
 	return objectID.Hex(), nil
 }
 
-func (b *BlogMongoRepository) GetAll(ctx context.Context) ([]domain.Blog, error) {
+func (b *BlogMongoRepository) GetAll(ctx context.Context, page, limit int) ([]domain.Blog, int, error) {
 	var blogs []domain.Blog
 	filter := bson.M{}
 
-	cursor, err := b.blogCollection.Find(ctx, filter)
+	skip := int64((page - 1) * limit)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(int64(limit))
+
+	total, err := b.blogCollection.CountDocuments(ctx, filter)
 	if err != nil {
-		return nil, domain.ErrRetrievingDocuments
+		return nil, 0, domain.ErrRetrievingDocuments
+	}
+
+	cursor, err := b.blogCollection.Find(ctx, filter, findOptions)
+	if err != nil {
+		return nil, 0, domain.ErrRetrievingDocuments
 	}
 	defer cursor.Close(ctx)
 
 	for cursor.Next(ctx) {
 		var mongoBlog models.MongoBlog
 		if err := cursor.Decode(&mongoBlog); err != nil {
-			return nil, domain.ErrDecodingDocument
+			return nil, 0, domain.ErrDecodingDocument
 		}
 		blogs = append(blogs, *mongoBlog.ToDomain())
 	}
 
 	if err := cursor.Err(); err != nil {
-		return nil, domain.ErrCursorIteration
+		return nil, 0, domain.ErrCursorIteration
 	}
 
-	return blogs, nil
+	return blogs, int(total), nil
 }
 
 func (b *BlogMongoRepository) GetByID(ctx context.Context, blogID string) (domain.Blog, error) {
@@ -163,32 +175,44 @@ func (b *BlogMongoRepository) Delete(ctx context.Context, blogID string) error {
 	return nil
 }
 
-func (b *BlogMongoRepository) Search(ctx context.Context, title string, user_ids []string) ([]domain.Blog, error) {
-	filter := bson.M{
-		"title": title,
-		"user_id": bson.M{
-			"$in": user_ids,
-		},
+func (b *BlogMongoRepository) Search(ctx context.Context, title string, user_ids []string, page, limit int) ([]domain.Blog, int, error) {
+	filter := bson.M{}
+	if title != "" {
+		filter["title"] = bson.M{"$regex": title, "$options": "i"}
 	}
-	var blogs []domain.Blog
-	cursor, err := b.blogCollection.Find(ctx, filter)
+	if len(user_ids) > 0 {
+		filter["user_id"] = bson.M{"$in": user_ids}
+	}
+
+	skip := int64((page - 1) * limit)
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(int64(limit))
+
+	total, err := b.blogCollection.CountDocuments(ctx, filter)
 	if err != nil {
-		return nil, domain.ErrQueryFailed
+		return nil, 0, domain.ErrRetrievingDocuments
+	}
+
+	cursor, err := b.blogCollection.Find(ctx, filter, findOptions)
+	if err != nil {
+		return nil, 0, domain.ErrQueryFailed
 	}
 	defer cursor.Close(ctx)
 
+	var blogs []domain.Blog
 	for cursor.Next(ctx) {
 		var mongoBlog models.MongoBlog
 		if err := cursor.Decode(&mongoBlog); err != nil {
-			return nil, domain.ErrDocumentDecoding
+			return nil, 0, domain.ErrDocumentDecoding
 		}
 		blogs = append(blogs, *mongoBlog.ToDomain())
 	}
 
 	if err := cursor.Err(); err != nil {
-		return nil, domain.ErrCursorFailed
+		return nil, 0, domain.ErrCursorFailed
 	}
-	return blogs, nil
+	return blogs, int(total), nil
 }
 
 // related to Blog Reactions
@@ -294,6 +318,57 @@ func (r *BlogMongoRepository) IncrementView(ctx context.Context, blogID string) 
 		return domain.ErrUpdatingDocument
 	}
 	return nil
+}
+
+// at the bottom of BlogMongoRepository:
+
+// Filter implements filtering by tag, date, and popularity
+func (b *BlogMongoRepository) Filter(ctx context.Context, params domain.FilterParams) ([]domain.Blog, int, error) {
+	filter := bson.M{}
+	if len(params.TagIDs) > 0 {
+		filter["tag_ids"] = bson.M{"$in": params.TagIDs}
+	}
+
+	findOptions := options.Find()
+	skip := int64((params.Page - 1) * params.Limit)
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(int64(params.Limit))
+
+	// Sort by popularity
+	switch params.Popularity {
+	case "views":
+		findOptions.SetSort(bson.D{{Key: "view_count", Value: -1}})
+	case "comments":
+		findOptions.SetSort(bson.D{{Key: "comment_count", Value: -1}})
+	case "likes":
+		findOptions.SetSort(bson.D{{Key: "like_count", Value: -1}})
+	case "dislikes":
+		findOptions.SetSort(bson.D{{Key: "dislike_count", Value: -1}})
+	}
+
+	total, err := b.blogCollection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, domain.ErrRetrievingDocuments
+	}
+
+	cursor, err := b.blogCollection.Find(ctx, filter, findOptions)
+	if err != nil {
+		return nil, 0, domain.ErrRetrievingDocuments
+	}
+	defer cursor.Close(ctx)
+
+	var blogs []domain.Blog
+	for cursor.Next(ctx) {
+		var mongoBlog models.MongoBlog
+		if err := cursor.Decode(&mongoBlog); err != nil {
+			return nil, 0, domain.ErrDecodingDocument
+		}
+		blogs = append(blogs, *mongoBlog.ToDomain())
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, 0, domain.ErrCursorIteration
+	}
+	return blogs, int(total), nil
 }
 
 // Operations related to comments
