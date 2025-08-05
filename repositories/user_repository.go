@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type UserRepository struct {
@@ -234,6 +235,69 @@ func (ur *UserRepository) UpdateTokens(ctx context.Context, userID string, acces
 	return nil
 }
 
+//get all users 
+func (ur *UserRepository) GetAllUsers(ctx context.Context)([]domain.User,error){
+	var users []domain.User
+	filter:=bson.M{}
+
+	cursor,err:=ur.userCollection.Find(ctx,filter)
+	if err!=nil{
+		return nil,err
+	}
+
+	defer cursor.Close(ctx)
+	
+	for cursor.Next(ctx){
+		var user models.User
+		if err:=cursor.Decode(&user);err!=nil{
+			return nil,domain.ErrDecodingDocument
+		}
+		users=append(users, user.ToDomain())
+	}
+	if err :=cursor.Err();err!=nil{
+		return nil,domain.ErrCursorIteration
+	}
+	return users,nil
+
+	
+}
+//search users based on query
+func (ur *UserRepository)SearchUsers(ctx context.Context,q string)([]domain.User,error){
+	//case insensetive regext quey on username or email
+	filter:=bson.M{
+		"$or":[]bson.M{
+			{"username":bson.M{"$regex":q,"$options":"i"}},
+			{"email":bson.M{"$regex":q,"$options":"i"}},
+		},
+	}
+
+	//only project safe fields
+	projection:=bson.M{
+		"password":0,
+	}
+	cursor,err:=ur.userCollection.Find(ctx,filter,options.Find().SetProjection(projection))
+	if err!=nil{
+		return nil,err
+	}
+
+	defer cursor.Close(ctx)
+
+	var users []domain.User
+
+	for cursor.Next(ctx){
+		var user models.User
+		if err:=cursor.Decode(&user);err !=nil{
+			return nil,domain.ErrDecodingDocument
+		}
+		users = append(users, user.ToDomain())
+	}
+	if err:=cursor.Err();err!=nil{
+		return nil,domain.ErrCursorIteration
+	}
+
+	return users,nil
+
+}
 
 
 
