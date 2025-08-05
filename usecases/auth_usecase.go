@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+	"unicode"
 
 	"github.com/InkForge/Blog_Website/domain"
 )
@@ -41,6 +42,11 @@ func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUse
 		email = oauthUser.Email
 	} else {
 		email = input.Email
+
+		// check password strength (min 8 chars, at least one number and one letter)
+		if !validatePasswordStrength(*input.Password) {
+			return nil, fmt.Errorf("%w", domain.ErrWeakPassword)
+		}
 	}
 
 	// email format validation
@@ -163,6 +169,17 @@ func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (string, s
 	refreshToken, err := uc.JWTService.GenerateRefreshToken(user.UserID, string(user.Role))
 	if err != nil {
 		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
+
+	user.AccessToken = &accessToken
+	user.RefreshToken = &refreshToken
+
+	user.UpdatedAt = time.Now()
+
+	// update the user (save the tokens into database)
+	err = uc.UserRepo.UpdateTokens(ctx, user.UserID, accessToken, refreshToken)
+	if err != nil {
+		return "", "", nil, domain.ErrDatabaseOperationFailed
 	}
 
 	return accessToken, refreshToken, user, nil
@@ -422,6 +439,11 @@ func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPas
 		return domain.ErrInvalidInput
 	}
 
+	// check password strength
+	if !validatePasswordStrength(newPassword) {
+		return fmt.Errorf("%w", domain.ErrWeakPassword)
+	}
+
 	user, err := uc.UserRepo.FindByID(ctx, userID)
 	if err != nil {
 		return domain.ErrUserNotFound
@@ -452,6 +474,51 @@ func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPas
 
 }
 
+
+//forgot password
+func (auc *AuthUseCase) ForgotPassword(ctx context.Context, email string) error {
+	if !validateEmail(email) {
+		return fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
+	}
+
+	user, err := auc.UserRepo.FindByEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("%w:%v", domain.ErrUserNotFound, err)
+
+	}
+	//generate a reset token
+	resetToken, err := auc.JWTService.GeneratePasswordResetToken(fmt.Sprint(user.UserID))
+	if err != nil {
+		return fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+
+	}
+	//reset link
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", auc.BaseURL, resetToken)
+
+	emailBody := fmt.Sprintf(`
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>Password Reset Requested</h2>
+        <p>We received a request to reset your password. Click the link below to proceed. This link is one-time use and expires soon.</p>
+        <p>
+          <a href="%s" style="display: inline-block; padding: 10px 20px; background-color: #f39c12;
+          color: white; text-decoration: none; border-radius: 4px;">Reset Password</a>
+        </p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+        <p>— The Team</p>
+      </body>
+    </html>
+    `, resetLink)
+
+	if err := auc.NotificationService.SendEmail(user.Email, "reset your password", emailBody); err != nil {
+		fmt.Println("forgot password email send failed", err)
+
+	}
+	return nil
+
+}
+
+
 //function to validate email
 
 func validateEmail(email string) bool {
@@ -459,6 +526,29 @@ func validateEmail(email string) bool {
 	return re.MatchString(email)
 
 }
+
+// function to validate password strength 
+
+func validatePasswordStrength(password string) bool {
+	if len(password) < 8 {
+		return false
+	}
+
+	hasLetter := false
+	hasNumber := false
+
+	for _, c := range password {
+		switch {
+		case unicode.IsLetter(c):
+			hasLetter = true
+		case unicode.IsNumber(c):
+			hasNumber = true
+		}
+	}
+
+	return hasLetter && hasNumber
+}
+
 
 //function to generate verification email body
 
