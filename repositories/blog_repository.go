@@ -295,3 +295,36 @@ func (r *BlogMongoRepository) IncrementView(ctx context.Context, blogID string) 
 	}
 	return nil
 }
+
+// Operations related to comments
+func (r *BlogMongoRepository) AddCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$push": bson.M{"comment_ids": commentID},
+		"$inc":  bson.M{"comment_count": 1},
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	return nil
+}
+
+func (r *BlogMongoRepository) RemoveCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$pull": bson.M{"comment_ids": commentID},
+		"$inc":  bson.M{"comment_count": -1},
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	return nil
+}

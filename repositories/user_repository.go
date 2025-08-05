@@ -210,3 +210,30 @@ func (ur *UserRepository) CountByEmail(ctx context.Context, email string) (int64
 func (ur *UserRepository) CountAll(ctx context.Context) (int64, error) {
 	return ur.userCollection.CountDocuments(ctx, bson.D{})
 }
+
+// UpdateTokens updates only the access and refresh tokens for a user
+func (ur *UserRepository) UpdateTokens(ctx context.Context, userID string, accessToken, refreshToken string) error {
+	filter := bson.M{"_id": userID}
+	update := bson.M{
+		"$set": bson.M{
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+			"updated_at":    time.Now(),
+		},
+	}
+
+	result, err := ur.userCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+
+
+

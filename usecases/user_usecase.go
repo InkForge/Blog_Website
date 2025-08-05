@@ -1,13 +1,16 @@
 package usecases
 
 import (
+
 	"context"
+
 	"time"
 
 	"github.com/InkForge/Blog_Website/domain"
 )
 
 type UserUseCase struct {
+
 	UserRepo            domain.IUserRepository	
 	ContextTimeout      time.Duration
 }
@@ -86,5 +89,6 @@ func(uc *UserUseCase)PromoteUser(ctx context.Context,userID string)(error){
 func(uc *UserUseCase)DemoteUser(ctx context.Context,userID  string)(error){
 	return nil
 }
+
 
 
