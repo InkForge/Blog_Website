@@ -49,9 +49,9 @@ type IUserRepository interface {
 	CountAll(c context.Context) (int64, error)
 
 	FindByUserName(c context.Context, username string) (*User, error)
+	FindUsersByName(ctx context.Context, name string) ([]*User, error)
 }
 
 // user usecase interface
 type IUserUseCase interface {
-	
 }

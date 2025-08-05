@@ -180,7 +180,6 @@ func (ur *UserRepository) FindByEmail(ctx context.Context, email string) (*domai
 	return &user, nil
 }
 
-
 // FindByUsername query the user collection based on specified username
 func (ur *UserRepository) FindByUserName(ctx context.Context, username string) (*domain.User, error) {
 	filter := bson.D{{Key: "username", Value: username}}
@@ -209,4 +208,33 @@ func (ur *UserRepository) CountByEmail(ctx context.Context, email string) (int64
 // CountAll counts the number of documents inside user collection
 func (ur *UserRepository) CountAll(ctx context.Context) (int64, error) {
 	return ur.userCollection.CountDocuments(ctx, bson.D{})
+}
+
+// FindUsersByName searches users by first or last name (case-insensitive, partial match)
+func (ur *UserRepository) FindUsersByName(ctx context.Context, name string) ([]*domain.User, error) {
+	filter := bson.D{
+		{Key: "$or", Value: bson.A{
+			bson.D{{Key: "first_name", Value: bson.D{{Key: "$regex", Value: name}, {Key: "$options", Value: "i"}}}},
+			bson.D{{Key: "last_name", Value: bson.D{{Key: "$regex", Value: name}, {Key: "$options", Value: "i"}}}},
+		}},
+	}
+	cursor, err := ur.userCollection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []*domain.User
+	for cursor.Next(ctx) {
+		var userModel models.User
+		if err := cursor.Decode(&userModel); err != nil {
+			return nil, err
+		}
+		user := userModel.ToDomain()
+		users = append(users, &user)
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	return users, nil
 }

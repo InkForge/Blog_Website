@@ -26,7 +26,7 @@ func NewBlogReactionUseCase(
 	}
 }
 
-func (uc *BlogReactionUseCase) Like(ctx context.Context, blog_id, user_id string) error {
+func (uc *BlogReactionUseCase) LikeBlog(ctx context.Context, blog_id, user_id string) error {
 
 	return uc.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// checking if we are creating a new record or updating existing
@@ -69,7 +69,7 @@ func (uc *BlogReactionUseCase) Like(ctx context.Context, blog_id, user_id string
 	})
 }
 
-func (uc *BlogReactionUseCase) DisLike(ctx context.Context, blog_id, user_id string) error {
+func (uc *BlogReactionUseCase) DisLikeBlog(ctx context.Context, blog_id, user_id string) error {
 
 	return uc.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// checking if we are creating a new record or updating existing
@@ -111,7 +111,7 @@ func (uc *BlogReactionUseCase) DisLike(ctx context.Context, blog_id, user_id str
 	})
 }
 
-func (uc *BlogReactionUseCase) Unlike(ctx context.Context, blogID, userID string) error {
+func (uc *BlogReactionUseCase) UnlikeBlog(ctx context.Context, blogID, userID string) error {
 	return uc.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		existingReaction, err := uc.blogReactionRepo.GetReactionByUserAndBlog(txCtx, blogID, userID)
 		if err != nil {
@@ -137,7 +137,7 @@ func (uc *BlogReactionUseCase) Unlike(ctx context.Context, blogID, userID string
 	})
 }
 
-func (uc *BlogReactionUseCase) Undislike(ctx context.Context, blogID, userID string) error {
+func (uc *BlogReactionUseCase) UndislikeBlog(ctx context.Context, blogID, userID string) error {
 	return uc.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		existingReaction, err := uc.blogReactionRepo.GetReactionByUserAndBlog(txCtx, blogID, userID)
 		if err != nil {
