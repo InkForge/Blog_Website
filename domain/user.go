@@ -65,5 +65,6 @@ type IUserUseCase interface {
 	GetMyData(c context.Context,userID string)(*User,error)
 	UpdateProfile(c context.Context ,user *User)(error)
 	PromoteToAdmin(c context.Context, userID string) error
+	DemoteFromAdmin(ctx context.Context, userID string) error
 	
 }
