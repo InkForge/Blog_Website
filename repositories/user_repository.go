@@ -234,6 +234,35 @@ func (ur *UserRepository) UpdateTokens(ctx context.Context, userID string, acces
 	return nil
 }
 
+// UpdateRole updates the role of a user. Only "admin" or "user" roles are allowed.
+func (ur *UserRepository) UpdateRole(ctx context.Context, userID string, role string) error {
+	if role != "admin" && role != "user" {
+		return domain.ErrInvalidRole
+	}
+
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return domain.ErrInvalidUserID
+	}
+
+	result, err := ur.userCollection.UpdateOne(
+		ctx,
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"role": role}},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+
 
 
 

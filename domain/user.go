@@ -52,7 +52,8 @@ type IUserRepository interface {
 
 	GetAllUsers( c context.Context)([]User,error)
 	SearchUsers( c context.Context,q string)([]User,error)
-
+	
+	UpdateRole( c context.Context, userID string, role string) error
 }
 
 // user usecase interface
