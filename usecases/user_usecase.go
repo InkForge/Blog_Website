@@ -82,13 +82,38 @@ func (uc *UserUseCase)UpdateProfile(ctx context.Context,user *domain.User)(error
 	return uc.UserRepo.UpdateUser(ctx,user)
 
 }
-//promote user and demote user are not implemented yet
-func(uc *UserUseCase)PromoteUser(ctx context.Context,userID string)(error){
-	return nil
+
+func (uc *UserUseCase) PromoteToAdmin(ctx context.Context, userID string) error {
+	if userID == "" {
+		return domain.ErrInvalidUserID
+	}
+
+	// check if user exists
+	_, err := uc.UserRepo.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// promote to admin
+	return uc.UserRepo.UpdateRole(ctx, userID, "admin")
 }
-func(uc *UserUseCase)DemoteUser(ctx context.Context,userID  string)(error){
-	return nil
+
+func (uc *UserUseCase) DemoteFromAdmin(ctx context.Context, userID string) error {
+	if userID == "" {
+		return domain.ErrInvalidUserID
+	}
+
+	// check if user exists
+	_, err := uc.UserRepo.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// demote to user
+	return uc.UserRepo.UpdateRole(ctx, userID, "user")
 }
+
+
 
 
 
