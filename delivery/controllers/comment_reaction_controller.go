@@ -1,9 +1,11 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/InkForge/Blog_Website/delivery/controllers/dto"
 	"github.com/InkForge/Blog_Website/domain"
@@ -22,7 +24,7 @@ func NewCommentReactionController(reactionUseCase domain.ICommentReactionUsecase
 	}
 }
 
-// ReactToComment handles POST /comments/:commentID/react/:status
+// ReactToComment handles POST /comments/:commentID/react/:status - handles like/dislike/remove reactions with context timeout
 func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 	commentID := c.Param("commentID")
 	if commentID == "" {
@@ -50,15 +52,20 @@ func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 		return
 	}
 
+	// Create context with timeout
+	ogCtx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	defer cancel()
+
 	// React to comment via use case
 	var reactionErr error
 	switch status {
 	case 1:
-		reactionErr = crc.reactionUseCase.LikeComment(c.Request.Context(), commentID, userID)
+		reactionErr = crc.reactionUseCase.LikeComment(ctx, commentID, userID)
 	case -1:
-		reactionErr = crc.reactionUseCase.DislikeComment(c.Request.Context(), commentID, userID)
+		reactionErr = crc.reactionUseCase.DislikeComment(ctx, commentID, userID)
 	case 0:
-		reactionErr = crc.reactionUseCase.RemoveReaction(c.Request.Context(), commentID, userID)
+		reactionErr = crc.reactionUseCase.RemoveReaction(ctx, commentID, userID)
 	}
 
 	if reactionErr != nil {
@@ -94,7 +101,7 @@ func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 	})
 }
 
-// GetUserReaction handles GET /comments/:commentID/reaction
+// GetUserReaction handles GET /comments/:commentID/reaction - retrieves user's reaction to a comment with context timeout
 func (crc *CommentReactionController) GetUserReaction(c *gin.Context) {
 	commentID := c.Param("commentID")
 	if commentID == "" {
@@ -109,8 +116,13 @@ func (crc *CommentReactionController) GetUserReaction(c *gin.Context) {
 		return
 	}
 
+	// Create context with timeout
+	ogCtx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	defer cancel()
+
 	// Get user reaction via use case
-	action, err := crc.reactionUseCase.GetUserReaction(c.Request.Context(), commentID, userID)
+	action, err := crc.reactionUseCase.GetUserReaction(ctx, commentID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidCommentID):
@@ -131,4 +143,4 @@ func (crc *CommentReactionController) GetUserReaction(c *gin.Context) {
 		"success": true,
 		"data":    response,
 	})
-} 
+}

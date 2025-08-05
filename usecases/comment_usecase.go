@@ -11,18 +11,18 @@ type CommentUsecase struct {
 	blogRepository       domain.IBlogRepository
 	commentRepository    domain.ICommentRepository
 	transactionManager   domain.ITransactionManager
-	contextTimeout       time.Duration
 }
 
-func NewCommentUsecase(blogRepo domain.IBlogRepository, commentRepo domain.ICommentRepository, transactionManager domain.ITransactionManager, timeout time.Duration) domain.ICommentUsecase {
+// NewCommentUsecase creates a new comment use case instance with required dependencies
+func NewCommentUsecase(blogRepo domain.IBlogRepository, commentRepo domain.ICommentRepository, transactionManager domain.ITransactionManager) domain.ICommentUsecase {
 	return &CommentUsecase{
 		blogRepository:     blogRepo,
 		commentRepository:  commentRepo,
 		transactionManager: transactionManager,
-		contextTimeout:     timeout,
 	}
 }
 
+// AddComment creates a new comment for a blog with transaction support to ensure data consistency
 func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment *domain.Comment) (string, error) {
 	if comment == nil {
 		return "", domain.ErrCommentRequired
@@ -36,9 +36,6 @@ func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment
 	if comment.User_id == "" {
 		return "", domain.ErrInvalidUserID
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cu.contextTimeout)
-	defer cancel()
 
 	// ensure blog exists
 	_, err := cu.blogRepository.GetByID(ctx, blogID)
@@ -77,6 +74,7 @@ func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment
 	return commentID, nil
 }
 
+// RemoveComment deletes a comment from a blog with transaction support to ensure data consistency
 func (cu *CommentUsecase) RemoveComment(ctx context.Context, blogID, commentID string) error {
 	if blogID == "" {
 		return domain.ErrInvalidBlogID
@@ -84,9 +82,6 @@ func (cu *CommentUsecase) RemoveComment(ctx context.Context, blogID, commentID s
 	if commentID == "" {
 		return domain.ErrInvalidCommentID
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cu.contextTimeout)
-	defer cancel()
 
 	comment, err := cu.commentRepository.GetByID(ctx, commentID)
 	if err != nil || comment.Blog_id != blogID {
@@ -112,10 +107,8 @@ func (cu *CommentUsecase) RemoveComment(ctx context.Context, blogID, commentID s
 	return err
 }
 
+// GetBlogComments retrieves all comments for a specific blog
 func (cu *CommentUsecase) GetBlogComments(ctx context.Context, blogID string) ([]domain.Comment, error) {
-	ctx, cancel := context.WithTimeout(ctx, cu.contextTimeout)
-	defer cancel()
-
 	_, err := cu.blogRepository.GetByID(ctx, blogID)
 	if err != nil {
 		return nil, domain.ErrBlogNotFound
@@ -124,13 +117,11 @@ func (cu *CommentUsecase) GetBlogComments(ctx context.Context, blogID string) ([
 	return cu.commentRepository.GetByBlogID(ctx, blogID)
 }
 
+// UpdateComment updates the content of an existing comment
 func (cu *CommentUsecase) UpdateComment(ctx context.Context, commentID string, comment *domain.Comment) error {
 	if comment == nil || commentID == "" || comment.Content == "" {
 		return domain.ErrCommentRequired
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cu.contextTimeout)
-	defer cancel()
 
 	existing, err := cu.commentRepository.GetByID(ctx, commentID)
 	if err != nil {
