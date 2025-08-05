@@ -439,7 +439,7 @@ func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPas
 		return domain.ErrInvalidInput
 	}
 
-	// check password stength
+	// check password strength
 	if !validatePasswordStrength(newPassword) {
 		return fmt.Errorf("%w", domain.ErrWeakPassword)
 	}
