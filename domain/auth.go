@@ -45,9 +45,6 @@ type IAuthUsecase interface {
 	// ChangePassword allows an authenticated user to change their password by
 	// verifying the old password and updating with the new one.
 	ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error
-
-	// ForgotPassword allows user not logged in and has forgotten their password to reset password via email
-	ForgotPassword(ctx context.Context, email string) error	
 }
 
 //PasswordService Interface
