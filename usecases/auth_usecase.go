@@ -475,50 +475,6 @@ func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPas
 }
 
 
-//forgot password
-func (auc *AuthUseCase) ForgotPassword(ctx context.Context, email string) error {
-	if !validateEmail(email) {
-		return fmt.Errorf("%w", domain.ErrInvalidEmailFormat)
-	}
-
-	user, err := auc.UserRepo.FindByEmail(ctx, email)
-	if err != nil {
-		return fmt.Errorf("%w:%v", domain.ErrUserNotFound, err)
-
-	}
-	//generate a reset token
-	resetToken, err := auc.JWTService.GeneratePasswordResetToken(fmt.Sprint(user.UserID))
-	if err != nil {
-		return fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
-
-	}
-	//reset link
-	resetLink := fmt.Sprintf("%s/reset-password?token=%s", auc.BaseURL, resetToken)
-
-	emailBody := fmt.Sprintf(`
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>Password Reset Requested</h2>
-        <p>We received a request to reset your password. Click the link below to proceed. This link is one-time use and expires soon.</p>
-        <p>
-          <a href="%s" style="display: inline-block; padding: 10px 20px; background-color: #f39c12;
-          color: white; text-decoration: none; border-radius: 4px;">Reset Password</a>
-        </p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
-        <p>— The Team</p>
-      </body>
-    </html>
-    `, resetLink)
-
-	if err := auc.NotificationService.SendEmail(user.Email, "reset your password", emailBody); err != nil {
-		fmt.Println("forgot password email send failed", err)
-
-	}
-	return nil
-
-}
-
-
 //function to validate email
 
 func validateEmail(email string) bool {
