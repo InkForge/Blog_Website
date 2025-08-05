@@ -13,7 +13,7 @@ type IAuthUsecase interface {
 	
 	// Login authenticates a user using an identifier (username or email) and password.
 	// It should verify credentials, check if the email is verified, and return accesstoken, refreshtoken, user data.
-	Login(ctx context.Context, input *User) (string, string, *User, error)
+	Login(ctx context.Context, input *User) (*LoginResult, error)
 
 	// Logout logs out a user by invalidating their session or deleting the stored refresh token.
 	// This ensures the user can no longer refresh their access token.
@@ -56,7 +56,7 @@ type IPasswordService interface {
 //JWTService Interface
 type IJWTService interface {
 	GenerateVerificationToken(userID string) (string, error)
-	GenerateAccessToken(userID string, role string) (string, error)
+	GenerateAccessToken(userID string, role string) (string, time.Duration, error)
 	GenerateRefreshToken(userID string, role string) (string, error)
 	ValidateRefreshToken(token string) (userID string, role string, err error)
 	ValidateAccessToken(token string) (userID string, role string, err error)
@@ -91,4 +91,11 @@ type IOAuth2Service interface {
 	SupportedProviders() []string
 	GetAuthorizationURL(provider string, state string) (string, error)
 	Authenticate(ctx context.Context, provider string, code string) (*User, error)
+}
+
+type LoginResult struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresIn    time.Duration
+	User         *User
 }
