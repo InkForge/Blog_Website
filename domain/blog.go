@@ -38,4 +38,19 @@ type IBlogRepository interface {
 	IncrementDisLike(ctx context.Context, blogID string) error
 	DecrementDisLike(ctx context.Context, blogID string) error
 	ToggleLikeDislikeCounts(ctx context.Context, blogID string, to_like, to_dislike int) error
+	
+	// Operations related to blog views
+	IncrementView(ctx context.Context, blogID string) error
+	
+	// Operations related to comments
+	AddCommentID(ctx context.Context, blogID, commentID string) error
+	RemoveCommentID(ctx context.Context, blogID, commentID string) error
+}
+
+type IBlogUsecase interface {
+	CreateBlog(ctx context.Context, blog *Blog) (string, error)
+	GetAllBlogs(ctx context.Context) ([]Blog, error)
+	GetBlogByID(ctx context.Context, blogID, userID string) (*Blog, error)
+	UpdateBlog(ctx context.Context, blog *Blog) error
+	DeleteBlog(ctx context.Context, blogID string) error
 }
