@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+	"unicode"
 
 	"github.com/InkForge/Blog_Website/domain"
 )
@@ -41,6 +42,11 @@ func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUse
 		email = oauthUser.Email
 	} else {
 		email = input.Email
+
+		// check password strength (min 8 chars, at least one number and one letter)
+		if !validatePasswordStrength(*input.Password) {
+			return nil, fmt.Errorf("%w", domain.ErrWeakPassword)
+		}
 	}
 
 	// email format validation
@@ -163,6 +169,17 @@ func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (string, s
 	refreshToken, err := uc.JWTService.GenerateRefreshToken(user.UserID, string(user.Role))
 	if err != nil {
 		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
+
+	user.AccessToken = &accessToken
+	user.RefreshToken = &refreshToken
+
+	user.UpdatedAt = time.Now()
+
+	// update the user (save the tokens into database)
+	err = uc.UserRepo.UpdateTokens(ctx, user.UserID, accessToken, refreshToken)
+	if err != nil {
+		return "", "", nil, domain.ErrDatabaseOperationFailed
 	}
 
 	return accessToken, refreshToken, user, nil
@@ -422,6 +439,11 @@ func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPas
 		return domain.ErrInvalidInput
 	}
 
+	// check password strength
+	if !validatePasswordStrength(newPassword) {
+		return fmt.Errorf("%w", domain.ErrWeakPassword)
+	}
+
 	user, err := uc.UserRepo.FindByID(ctx, userID)
 	if err != nil {
 		return domain.ErrUserNotFound
@@ -452,6 +474,7 @@ func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPas
 
 }
 
+
 //function to validate email
 
 func validateEmail(email string) bool {
@@ -459,6 +482,29 @@ func validateEmail(email string) bool {
 	return re.MatchString(email)
 
 }
+
+// function to validate password strength 
+
+func validatePasswordStrength(password string) bool {
+	if len(password) < 8 {
+		return false
+	}
+
+	hasLetter := false
+	hasNumber := false
+
+	for _, c := range password {
+		switch {
+		case unicode.IsLetter(c):
+			hasLetter = true
+		case unicode.IsNumber(c):
+			hasNumber = true
+		}
+	}
+
+	return hasLetter && hasNumber
+}
+
 
 //function to generate verification email body
 

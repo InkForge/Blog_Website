@@ -8,16 +8,18 @@ import (
 )
 
 type CommentUsecase struct {
-	blogRepository    domain.IBlogRepository
-	commentRepository domain.ICommentRepository
-	contextTimeout    time.Duration
+	blogRepository       domain.IBlogRepository
+	commentRepository    domain.ICommentRepository
+	transactionManager   domain.ITransactionManager
+	contextTimeout       time.Duration
 }
 
-func NewCommentUsecase(blogRepo domain.IBlogRepository, commentRepo domain.ICommentRepository, timeout time.Duration) domain.ICommentUsecase {
+func NewCommentUsecase(blogRepo domain.IBlogRepository, commentRepo domain.ICommentRepository, transactionManager domain.ITransactionManager, timeout time.Duration) domain.ICommentUsecase {
 	return &CommentUsecase{
-		blogRepository:    blogRepo,
-		commentRepository: commentRepo,
-		contextTimeout:    timeout,
+		blogRepository:     blogRepo,
+		commentRepository:  commentRepo,
+		transactionManager: transactionManager,
+		contextTimeout:     timeout,
 	}
 }
 
@@ -50,12 +52,24 @@ func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment
 	comment.Created_at = time.Now()
 	comment.Updated_at = comment.Created_at
 
-	commentID, err := cu.commentRepository.Create(ctx, *comment)
-	if err != nil {
-		return "", err
-	}
+	var commentID string
+	err = cu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// Create the comment
+		id, err := cu.commentRepository.Create(txCtx, *comment)
+		if err != nil {
+			return err
+		}
+		commentID = id
 
-	err = cu.blogRepository.AddCommentID(ctx, blogID, commentID)
+		// Add comment ID to blog
+		err = cu.blogRepository.AddCommentID(txCtx, blogID, commentID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return "", err
 	}
@@ -79,12 +93,23 @@ func (cu *CommentUsecase) RemoveComment(ctx context.Context, blogID, commentID s
 		return domain.ErrCommentNotFound
 	}
 
-	err = cu.commentRepository.Delete(ctx, commentID)
-	if err != nil {
-		return err
-	}
+	err = cu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// Delete the comment
+		err := cu.commentRepository.Delete(txCtx, commentID)
+		if err != nil {
+			return err
+		}
 
-	return cu.blogRepository.RemoveCommentID(ctx, blogID, commentID)
+		// Remove comment ID from blog
+		err = cu.blogRepository.RemoveCommentID(txCtx, blogID, commentID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return err
 }
 
 func (cu *CommentUsecase) GetBlogComments(ctx context.Context, blogID string) ([]domain.Comment, error) {

@@ -122,6 +122,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 	})
 }
 
+
 // ChangePassword handles password change requests.
 // It requires the user to be authenticated and to provide the old and new passwords.
 // Returns 400 for invalid input, 401 if user is unauthenticated or old password is wrong.

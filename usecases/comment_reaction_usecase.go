@@ -11,17 +11,20 @@ import (
 type CommentReactionUsecase struct {
 	commentRepository         domain.ICommentRepository
 	commentReactionRepository domain.ICommentReactionRepository
+	transactionManager        domain.ITransactionManager
 	contextTimeout            time.Duration
 }
 
 func NewCommentReactionUsecase(
 	commentRepo domain.ICommentRepository,
 	reactionRepo domain.ICommentReactionRepository,
+	transactionManager domain.ITransactionManager,
 	timeout time.Duration,
 ) domain.ICommentReactionUsecase {
 	return &CommentReactionUsecase{
 		commentRepository:         commentRepo,
 		commentReactionRepository: reactionRepo,
+		transactionManager:        transactionManager,
 		contextTimeout:            timeout,
 	}
 }
@@ -51,35 +54,37 @@ func (cru *CommentReactionUsecase) LikeComment(ctx context.Context, commentID, u
 
 	now := time.Now()
 
-	if errors.Is(err, domain.ErrCommentReactionNotFound) {
-		// No existing reaction, create one
-		newReaction := domain.CommentReaction{
-			Comment_id: commentID,
-			User_id:    userID,
-			Action:     1,
-			Created_at: now,
-			Updated_at: now,
-		}
-		if err := cru.commentReactionRepository.Create(ctx, newReaction); err != nil {
-			return err
-		}
-	} else {
-		if existing.Action == 1 {
-			// Already liked, remove it
-			if err := cru.commentReactionRepository.Delete(ctx, commentID, userID); err != nil {
+	return cru.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if errors.Is(err, domain.ErrCommentReactionNotFound) {
+			// No existing reaction, create one
+			newReaction := domain.CommentReaction{
+				Comment_id: commentID,
+				User_id:    userID,
+				Action:     1,
+				Created_at: now,
+				Updated_at: now,
+			}
+			if err := cru.commentReactionRepository.Create(txCtx, newReaction); err != nil {
 				return err
 			}
 		} else {
-			// Switch to like
-			existing.Action = 1
-			existing.Updated_at = now
-			if err := cru.commentReactionRepository.Update(ctx, existing); err != nil {
-				return err
+			if existing.Action == 1 {
+				// Already liked, remove it
+				if err := cru.commentReactionRepository.Delete(txCtx, commentID, userID); err != nil {
+					return err
+				}
+			} else {
+				// Switch to like
+				existing.Action = 1
+				existing.Updated_at = now
+				if err := cru.commentReactionRepository.Update(txCtx, existing); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return cru.updateCommentReactionCounts(ctx, commentID)
+		return cru.updateCommentReactionCounts(txCtx, commentID)
+	})
 }
 
 func (cru *CommentReactionUsecase) DislikeComment(ctx context.Context, commentID, userID string) error {
@@ -107,32 +112,34 @@ func (cru *CommentReactionUsecase) DislikeComment(ctx context.Context, commentID
 
 	now := time.Now()
 
-	if errors.Is(err, domain.ErrCommentReactionNotFound) {
-		newReaction := domain.CommentReaction{
-			Comment_id: commentID,
-			User_id:    userID,
-			Action:     -1,
-			Created_at: now,
-			Updated_at: now,
-		}
-		if err := cru.commentReactionRepository.Create(ctx, newReaction); err != nil {
-			return err
-		}
-	} else {
-		if existing.Action == -1 {
-			if err := cru.commentReactionRepository.Delete(ctx, commentID, userID); err != nil {
+	return cru.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if errors.Is(err, domain.ErrCommentReactionNotFound) {
+			newReaction := domain.CommentReaction{
+				Comment_id: commentID,
+				User_id:    userID,
+				Action:     -1,
+				Created_at: now,
+				Updated_at: now,
+			}
+			if err := cru.commentReactionRepository.Create(txCtx, newReaction); err != nil {
 				return err
 			}
 		} else {
-			existing.Action = -1
-			existing.Updated_at = now
-			if err := cru.commentReactionRepository.Update(ctx, existing); err != nil {
-				return err
+			if existing.Action == -1 {
+				if err := cru.commentReactionRepository.Delete(txCtx, commentID, userID); err != nil {
+					return err
+				}
+			} else {
+				existing.Action = -1
+				existing.Updated_at = now
+				if err := cru.commentReactionRepository.Update(txCtx, existing); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return cru.updateCommentReactionCounts(ctx, commentID)
+		return cru.updateCommentReactionCounts(txCtx, commentID)
+	})
 }
 
 func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID, userID string) error {
@@ -153,11 +160,13 @@ func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID
 		return err
 	}
 
-	if err := cru.commentReactionRepository.Delete(ctx, commentID, userID); err != nil {
-		return err
-	}
+	return cru.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := cru.commentReactionRepository.Delete(txCtx, commentID, userID); err != nil {
+			return err
+		}
 
-	return cru.updateCommentReactionCounts(ctx, commentID)
+		return cru.updateCommentReactionCounts(txCtx, commentID)
+	})
 }
 
 func (cru *CommentReactionUsecase) GetUserReaction(ctx context.Context, commentID, userID string) (int, error) {

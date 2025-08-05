@@ -13,17 +13,17 @@ type BlogUsecase struct {
 	blogViewRepo       domain.IBlogViewRepository
 	tagRepo            domain.ITagRepository
 	userRepo           domain.IUserRepository
-	transactionManager domain.TransactionManager
+	transactionManager domain.ITransactionManager
 }
 
-// NewBlogUsecase creates a new BlogUsecase instance.
-// It accepts all dependencies, with some being optional (e.g., userRepo)
-// for different use-case scenarios.
-func NewBlogUsecase(blogRepo domain.IBlogRepository,
+
+func NewBlogUsecase(
+	blogRepo domain.IBlogRepository,
 	blogViewRepo domain.IBlogViewRepository,
 	tagRepo domain.ITagRepository,
 	userRepo domain.IUserRepository,
-	transactionManager domain.TransactionManager) *BlogUsecase {
+	transactionManager domain.ITransactionManager,
+) domain.IBlogUsecase {
 	return &BlogUsecase{
 		blogRepo:           blogRepo,
 		blogViewRepo:       blogViewRepo,
@@ -33,7 +33,8 @@ func NewBlogUsecase(blogRepo domain.IBlogRepository,
 	}
 }
 
-// ensureTagsExist is a helper function to centralize tag creation logic.
+
+
 // It finds existing tags, creates new ones if they don't exist, and returns all tag IDs.
 func (bu *BlogUsecase) ensureTagsExist(ctx context.Context, tagNames []string) ([]string, error) {
 	if len(tagNames) == 0 {

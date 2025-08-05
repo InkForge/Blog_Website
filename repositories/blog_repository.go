@@ -320,12 +320,15 @@ func (r *BlogMongoRepository) IncrementView(ctx context.Context, blogID string) 
 	return nil
 }
 
+// at the bottom of BlogMongoRepository:
+
 // Filter implements filtering by tag, date, and popularity
 func (b *BlogMongoRepository) Filter(ctx context.Context, params domain.FilterParams) ([]domain.Blog, int, error) {
 	filter := bson.M{}
 	if len(params.TagIDs) > 0 {
 		filter["tag_ids"] = bson.M{"$in": params.TagIDs}
 	}
+
 	findOptions := options.Find()
 	skip := int64((params.Page - 1) * params.Limit)
 	findOptions.SetSkip(skip)
@@ -366,4 +369,37 @@ func (b *BlogMongoRepository) Filter(ctx context.Context, params domain.FilterPa
 		return nil, 0, domain.ErrCursorIteration
 	}
 	return blogs, int(total), nil
+}
+
+// Operations related to comments
+func (r *BlogMongoRepository) AddCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$push": bson.M{"comment_ids": commentID},
+		"$inc":  bson.M{"comment_count": 1},
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	return nil
+}
+
+func (r *BlogMongoRepository) RemoveCommentID(ctx context.Context, blogID, commentID string) error {
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		return domain.ErrInvalidBlogIdFormat
+	}
+
+	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
+		"$pull": bson.M{"comment_ids": commentID},
+		"$inc":  bson.M{"comment_count": -1},
+	})
+	if err != nil {
+		return domain.ErrUpdatingDocument
+	}
+	return nil
 }

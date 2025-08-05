@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type UserRepository struct {
@@ -209,7 +210,6 @@ func (ur *UserRepository) CountByEmail(ctx context.Context, email string) (int64
 func (ur *UserRepository) CountAll(ctx context.Context) (int64, error) {
 	return ur.userCollection.CountDocuments(ctx, bson.D{})
 }
-
 // FindUsersByName searches users by first or last name (case-insensitive, partial match)
 func (ur *UserRepository) FindUsersByName(ctx context.Context, name string) ([]*domain.User, error) {
 	filter := bson.D{
@@ -237,4 +237,113 @@ func (ur *UserRepository) FindUsersByName(ctx context.Context, name string) ([]*
 		return nil, err
 	}
 	return users, nil
+}
+
+// UpdateTokens updates only the access and refresh tokens for a user
+func (ur *UserRepository) UpdateTokens(ctx context.Context, userID string, accessToken, refreshToken string) error {
+	filter := bson.M{"_id": userID}
+	update := bson.M{
+		"$set": bson.M{
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+			"updated_at":    time.Now(),
+		},
+	}
+
+	result, err := ur.userCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
+}
+
+// GetAllUsers returns all users
+func (ur *UserRepository) GetAllUsers(ctx context.Context) ([]domain.User, error) {
+	var users []domain.User
+	filter := bson.M{}
+
+	cursor, err := ur.userCollection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var user models.User
+		if err := cursor.Decode(&user); err != nil {
+			return nil, domain.ErrDecodingDocument
+		}
+		users = append(users, user.ToDomain())
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, domain.ErrCursorIteration
+	}
+	return users, nil
+}
+
+// SearchUsers performs a case-insensitive regex search on username or email
+func (ur *UserRepository) SearchUsers(ctx context.Context, q string) ([]domain.User, error) {
+	filter := bson.M{
+		"$or": []bson.M{
+			{"username": bson.M{"$regex": q, "$options": "i"}},
+			{"email": bson.M{"$regex": q, "$options": "i"}},
+		},
+	}
+
+	// Only project safe fields (e.g., exclude password)
+	projection := bson.M{
+		"password": 0,
+	}
+	cursor, err := ur.userCollection.Find(ctx, filter, options.Find().SetProjection(projection))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []domain.User
+	for cursor.Next(ctx) {
+		var user models.User
+		if err := cursor.Decode(&user); err != nil {
+			return nil, domain.ErrDecodingDocument
+		}
+		users = append(users, user.ToDomain())
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, domain.ErrCursorIteration
+	}
+
+	return users, nil
+}
+
+// UpdateRole updates the role of a user. Only "admin" or "user" roles are allowed.
+func (ur *UserRepository) UpdateRole(ctx context.Context, userID string, role string) error {
+	if role != "admin" && role != "user" {
+		return domain.ErrInvalidRole
+	}
+
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return domain.ErrInvalidUserID
+	}
+
+	result, err := ur.userCollection.UpdateOne(
+		ctx,
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"role": role}},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return domain.ErrUserNotFound
+	}
+
+	return nil
 }
