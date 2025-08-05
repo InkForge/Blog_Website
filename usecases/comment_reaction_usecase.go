@@ -12,23 +12,22 @@ type CommentReactionUsecase struct {
 	commentRepository         domain.ICommentRepository
 	commentReactionRepository domain.ICommentReactionRepository
 	transactionManager        domain.ITransactionManager
-	contextTimeout            time.Duration
 }
 
+// NewCommentReactionUsecase creates a new comment reaction use case instance with required dependencies
 func NewCommentReactionUsecase(
 	commentRepo domain.ICommentRepository,
 	reactionRepo domain.ICommentReactionRepository,
 	transactionManager domain.ITransactionManager,
-	timeout time.Duration,
 ) domain.ICommentReactionUsecase {
 	return &CommentReactionUsecase{
 		commentRepository:         commentRepo,
 		commentReactionRepository: reactionRepo,
 		transactionManager:        transactionManager,
-		contextTimeout:            timeout,
 	}
 }
 
+// LikeComment handles liking a comment with transaction support to ensure reaction count consistency
 func (cru *CommentReactionUsecase) LikeComment(ctx context.Context, commentID, userID string) error {
 	if commentID == "" {
 		return domain.ErrInvalidCommentID
@@ -36,9 +35,6 @@ func (cru *CommentReactionUsecase) LikeComment(ctx context.Context, commentID, u
 	if userID == "" {
 		return domain.ErrInvalidUserID
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
-	defer cancel()
 
 	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
 		if errors.Is(err, domain.ErrCommentNotFound) {
@@ -87,6 +83,7 @@ func (cru *CommentReactionUsecase) LikeComment(ctx context.Context, commentID, u
 	})
 }
 
+// DislikeComment handles disliking a comment with transaction support to ensure reaction count consistency
 func (cru *CommentReactionUsecase) DislikeComment(ctx context.Context, commentID, userID string) error {
 	if commentID == "" {
 		return domain.ErrInvalidCommentID
@@ -94,9 +91,6 @@ func (cru *CommentReactionUsecase) DislikeComment(ctx context.Context, commentID
 	if userID == "" {
 		return domain.ErrInvalidUserID
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
-	defer cancel()
 
 	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
 		if errors.Is(err, domain.ErrCommentNotFound) {
@@ -142,6 +136,7 @@ func (cru *CommentReactionUsecase) DislikeComment(ctx context.Context, commentID
 	})
 }
 
+// RemoveReaction removes a user's reaction from a comment with transaction support
 func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID, userID string) error {
 	if commentID == "" {
 		return domain.ErrInvalidCommentID
@@ -149,9 +144,6 @@ func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID
 	if userID == "" {
 		return domain.ErrInvalidUserID
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
-	defer cancel()
 
 	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
 		if errors.Is(err, domain.ErrCommentNotFound) {
@@ -169,6 +161,7 @@ func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID
 	})
 }
 
+// GetUserReaction retrieves a user's reaction to a specific comment
 func (cru *CommentReactionUsecase) GetUserReaction(ctx context.Context, commentID, userID string) (int, error) {
 	if commentID == "" {
 		return 0, domain.ErrInvalidCommentID
@@ -176,9 +169,6 @@ func (cru *CommentReactionUsecase) GetUserReaction(ctx context.Context, commentI
 	if userID == "" {
 		return 0, domain.ErrInvalidUserID
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, cru.contextTimeout)
-	defer cancel()
 
 	if _, err := cru.commentRepository.GetByID(ctx, commentID); err != nil {
 		if errors.Is(err, domain.ErrCommentNotFound) {
@@ -198,6 +188,7 @@ func (cru *CommentReactionUsecase) GetUserReaction(ctx context.Context, commentI
 	return reaction.Action, nil
 }
 
+// updateCommentReactionCounts updates the like and dislike counts for a comment based on current reactions
 func (cru *CommentReactionUsecase) updateCommentReactionCounts(ctx context.Context, commentID string) error {
 	likes, dislikes, err := cru.commentReactionRepository.GetReactionCounts(ctx, commentID)
 	if err != nil {

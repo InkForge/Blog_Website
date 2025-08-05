@@ -1,27 +1,25 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/InkForge/Blog_Website/delivery/controllers/dto"
 	"github.com/InkForge/Blog_Website/domain"
 	"github.com/gin-gonic/gin"
 )
 
-// CommentController handles HTTP requests for comment operations
 type CommentController struct {
 	commentUseCase domain.ICommentUsecase
 }
 
-// NewCommentController creates a new comment controller
 func NewCommentController(commentUseCase domain.ICommentUsecase) *CommentController {
 	return &CommentController{
 		commentUseCase: commentUseCase,
 	}
 }
-
-
 
 // AddComment handles POST /blogs/:blogID/comments
 func (cc *CommentController) AddComment(c *gin.Context) {
@@ -31,7 +29,6 @@ func (cc *CommentController) AddComment(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from authenticated context (set by auth middleware)
 	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -44,15 +41,17 @@ func (cc *CommentController) AddComment(c *gin.Context) {
 		return
 	}
 
-	// Create comment domain object
 	comment := &domain.Comment{
 		Blog_id: blogID,
 		User_id: userID,
 		Content: req.Content,
 	}
 
-	// Add comment via use case
-	commentID, err := cc.commentUseCase.AddComment(c.Request.Context(), blogID, comment)
+	ogCtx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	defer cancel()
+
+	commentID, err := cc.commentUseCase.AddComment(ctx, blogID, comment)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrCommentRequired):
@@ -71,16 +70,13 @@ func (cc *CommentController) AddComment(c *gin.Context) {
 		return
 	}
 
-	// Prepare response
-	response := gin.H{
-		"message":     "Comment added successfully",
-		"comment_id":  commentID,
-		"blog_id":     blogID,
-		"user_id":     userID,
-		"content":     req.Content,
-	}
-
-	c.JSON(http.StatusCreated, response)
+	c.JSON(http.StatusCreated, gin.H{
+		"message":    "Comment added successfully",
+		"comment_id": commentID,
+		"blog_id":    blogID,
+		"user_id":    userID,
+		"content":    req.Content,
+	})
 }
 
 // GetBlogComments handles GET /blogs/:blogID/comments
@@ -91,8 +87,11 @@ func (cc *CommentController) GetBlogComments(c *gin.Context) {
 		return
 	}
 
-	// Get comments via use case
-	comments, err := cc.commentUseCase.GetBlogComments(c.Request.Context(), blogID)
+	ogCtx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	defer cancel()
+
+	comments, err := cc.commentUseCase.GetBlogComments(ctx, blogID)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrBlogNotFound):
@@ -103,7 +102,6 @@ func (cc *CommentController) GetBlogComments(c *gin.Context) {
 		return
 	}
 
-	// Convert domain comments to response format using DTO
 	response := dto.FromDomainComments(comments)
 	c.JSON(http.StatusOK, response)
 }
@@ -116,7 +114,6 @@ func (cc *CommentController) UpdateComment(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from authenticated context
 	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -129,15 +126,17 @@ func (cc *CommentController) UpdateComment(c *gin.Context) {
 		return
 	}
 
-	// Create comment domain object for update
 	comment := &domain.Comment{
 		Comment_id: commentID,
 		User_id:    userID,
 		Content:    req.Content,
 	}
 
-	// Update comment via use case
-	err := cc.commentUseCase.UpdateComment(c.Request.Context(), commentID, comment)
+	ogCtx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	defer cancel()
+
+	err := cc.commentUseCase.UpdateComment(ctx, commentID, comment)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrCommentRequired):
@@ -151,8 +150,8 @@ func (cc *CommentController) UpdateComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Comment updated successfully",
+		"success":    true,
+		"message":    "Comment updated successfully",
 		"comment_id": commentID,
 	})
 }
@@ -161,7 +160,7 @@ func (cc *CommentController) UpdateComment(c *gin.Context) {
 func (cc *CommentController) RemoveComment(c *gin.Context) {
 	blogID := c.Param("blogID")
 	commentID := c.Param("commentID")
-	
+
 	if blogID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Blog ID is required"})
 		return
@@ -171,15 +170,17 @@ func (cc *CommentController) RemoveComment(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from authenticated context
 	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	// Remove comment via use case
-	err := cc.commentUseCase.RemoveComment(c.Request.Context(), blogID, commentID)
+	ogCtx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	defer cancel()
+
+	err := cc.commentUseCase.RemoveComment(ctx, blogID, commentID)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidBlogID):
@@ -195,8 +196,8 @@ func (cc *CommentController) RemoveComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Comment removed successfully",
+		"success":    true,
+		"message":    "Comment removed successfully",
 		"comment_id": commentID,
 	})
-} 
+}
