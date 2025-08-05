@@ -98,5 +98,22 @@ func (uc *UserUseCase) PromoteToAdmin(ctx context.Context, userID string) error 
 	return uc.UserRepo.UpdateRole(ctx, userID, "admin")
 }
 
+func (uc *UserUseCase) DemoteFromAdmin(ctx context.Context, userID string) error {
+	if userID == "" {
+		return domain.ErrInvalidUserID
+	}
+
+	// check if user exists
+	_, err := uc.UserRepo.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// demote to user
+	return uc.UserRepo.UpdateRole(ctx, userID, "user")
+}
+
+
+
 
 
