@@ -42,15 +42,15 @@ type ICommentReactionRepository interface {
 }
 
 type ICommentUsecase interface {
-	AddComment(ctx context.Context, blogID string, comment *Comment) (string, error)
-	RemoveComment(ctx context.Context, blogID, commentID string) error
+	AddComment(ctx context.Context, blogID string, comment *Comment, role string) (string, error)
+	RemoveComment(ctx context.Context, blogID, commentID, requesterID, role string) error
 	GetBlogComments(ctx context.Context, blogID string) ([]Comment, error)
-	UpdateComment(ctx context.Context, commentID string, comment *Comment) error
+	UpdateComment(ctx context.Context, commentID string, comment *Comment, role string) error
+	GetCommentByID(ctx context.Context, commentID string) (Comment, error)
 }
-
 type ICommentReactionUsecase interface {
 	LikeComment(ctx context.Context, commentID, userID string) error
 	DislikeComment(ctx context.Context, commentID, userID string) error
-	RemoveReaction(ctx context.Context, commentID, userID string) error
+	RemoveReaction(ctx context.Context, commentID, userID, role string) error
 	GetUserReaction(ctx context.Context, commentID, userID string) (int, error)
 } 

@@ -137,7 +137,7 @@ func (cru *CommentReactionUsecase) DislikeComment(ctx context.Context, commentID
 }
 
 // RemoveReaction removes a user's reaction from a comment with transaction support
-func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID, userID string) error {
+func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID, userID, role string) error {
 	if commentID == "" {
 		return domain.ErrInvalidCommentID
 	}
@@ -150,6 +150,20 @@ func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID
 			return err
 		}
 		return err
+	}
+
+	// Check if user has permission to remove this reaction
+	existingReaction, err := cru.commentReactionRepository.GetByCommentAndUser(ctx, commentID, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrCommentReactionNotFound) {
+			return domain.ErrCommentReactionNotFound
+		}
+		return err
+	}
+
+	// Only the user who created the reaction or an admin can remove it
+	if role != "admin" && existingReaction.User_id != userID {
+		return domain.ErrForbidden
 	}
 
 	return cru.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
