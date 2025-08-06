@@ -24,6 +24,7 @@ type Config struct {
 	JWTSecretKey              string
 	JWTExpirationMinutes      int
 	RefreshTokenSecret        string
+	AccessTokenSecret         string
 	RefreshTokenExpirationMin int
 
 	SMTPHost      string

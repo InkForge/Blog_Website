@@ -10,7 +10,7 @@ func main() {
 	db := client.Database("blogapp")
 
 	userRepo := repositories.NewUserRepository(db)
-	
+
 	// other repo defined here as the above one
 
 }

@@ -241,7 +241,11 @@ func (ur *UserRepository) FindUsersByName(ctx context.Context, name string) ([]*
 
 // UpdateTokens updates only the access and refresh tokens for a user
 func (ur *UserRepository) UpdateTokens(ctx context.Context, userID string, accessToken, refreshToken string) error {
-	filter := bson.M{"_id": userID}
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return domain.ErrInvalidUserID
+	}
+	filter := bson.M{"_id": objID}
 	update := bson.M{
 		"$set": bson.M{
 			"access_token":  accessToken,
