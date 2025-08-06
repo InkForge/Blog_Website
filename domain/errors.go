@@ -81,4 +81,5 @@ var (
 
 	// ─── Generic Errors ────────────────────────────────────────────────────
 	ErrInternalServerError = errors.New("internal server error")
+	ErrForbidden = errors.New("forbidden: you do not have permission")
 )

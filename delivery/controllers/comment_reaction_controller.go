@@ -12,19 +12,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CommentReactionController handles HTTP requests for comment reaction operations
 type CommentReactionController struct {
 	reactionUseCase domain.ICommentReactionUsecase
 }
 
-// NewCommentReactionController creates a new comment reaction controller
 func NewCommentReactionController(reactionUseCase domain.ICommentReactionUsecase) *CommentReactionController {
 	return &CommentReactionController{
 		reactionUseCase: reactionUseCase,
 	}
 }
 
-// ReactToComment handles POST /comments/:commentID/react/:status - handles like/dislike/remove reactions with context timeout
+// ReactToComment handles POST /comments/:commentID/react/:status
 func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 	commentID := c.Param("commentID")
 	if commentID == "" {
@@ -39,25 +37,26 @@ func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 		return
 	}
 
-	// Validate status values
 	if status != -1 && status != 0 && status != 1 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Status must be -1 (dislike), 0 (neutral), or 1 (like)"})
 		return
 	}
 
-	// Get user ID from authenticated context (set by auth middleware)
 	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	// Create context with timeout
-	ogCtx := c.Request.Context()
-	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	role := c.GetString("userRole")
+	if role == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User role not found in context"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// React to comment via use case
 	var reactionErr error
 	switch status {
 	case 1:
@@ -65,7 +64,7 @@ func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 	case -1:
 		reactionErr = crc.reactionUseCase.DislikeComment(ctx, commentID, userID)
 	case 0:
-		reactionErr = crc.reactionUseCase.RemoveReaction(ctx, commentID, userID)
+		reactionErr = crc.reactionUseCase.RemoveReaction(ctx, commentID, userID, role)
 	}
 
 	if reactionErr != nil {
@@ -82,7 +81,6 @@ func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 		return
 	}
 
-	// Create appropriate success message
 	var message string
 	switch status {
 	case 1:
@@ -101,7 +99,7 @@ func (crc *CommentReactionController) ReactToComment(c *gin.Context) {
 	})
 }
 
-// GetUserReaction handles GET /comments/:commentID/reaction - retrieves user's reaction to a comment with context timeout
+// GetUserReaction handles GET /comments/:commentID/reaction
 func (crc *CommentReactionController) GetUserReaction(c *gin.Context) {
 	commentID := c.Param("commentID")
 	if commentID == "" {
@@ -109,19 +107,15 @@ func (crc *CommentReactionController) GetUserReaction(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from authenticated context
 	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	// Create context with timeout
-	ogCtx := c.Request.Context()
-	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// Get user reaction via use case
 	action, err := crc.reactionUseCase.GetUserReaction(ctx, commentID, userID)
 	if err != nil {
 		switch {
