@@ -2,7 +2,9 @@ package controllers
 
 // imports
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/InkForge/Blog_Website/domain"
 	"github.com/gin-gonic/gin"
@@ -20,9 +22,13 @@ func NewUserController(userUsecase domain.IUserUseCase)*UserController{
 
 // user promote to admin role controller
 func (uc *UserController) PromoteToAdmin(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
+
+
 	userID := c.Param("id")
 
-	err := uc.UserUseCase.PromoteToAdmin(c.Request.Context(), userID)
+	err := uc.UserUseCase.PromoteToAdmin(ctx, userID)
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidUserID, domain.ErrInvalidRole:
@@ -41,9 +47,11 @@ func (uc *UserController) PromoteToAdmin(c *gin.Context) {
 
 // user demote from admin role controller
 func (uc *UserController) DemoteFromAdmin(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
 	userID := c.Param("id")
 
-	err := uc.UserUseCase.DemoteFromAdmin(c.Request.Context(), userID)
+	err := uc.UserUseCase.DemoteFromAdmin(ctx, userID)
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidUserID, domain.ErrInvalidRole:
@@ -61,9 +69,11 @@ func (uc *UserController) DemoteFromAdmin(c *gin.Context) {
 
 // GetUserByID handles GET /users/:id
 func (uc *UserController) GetUserByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
 	userID := c.Param("id")
 
-	user, err := uc.UserUseCase.GetUserByID(c.Request.Context(), userID)
+	user, err := uc.UserUseCase.GetUserByID(ctx, userID)
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidUserID:
@@ -81,7 +91,9 @@ func (uc *UserController) GetUserByID(c *gin.Context) {
 
 // GetUsers handles GET /users
 func (uc *UserController) GetUsers(c *gin.Context) {
-	users, err := uc.UserUseCase.GetUsers(c.Request.Context())
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
+	users, err := uc.UserUseCase.GetUsers(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get users"})
 		return
@@ -92,9 +104,11 @@ func (uc *UserController) GetUsers(c *gin.Context) {
 
  //DeleteUser handles DELETE /users/:id
 func (uc *UserController) DeleteUser(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
 	userID := c.Param("id")
 
-	err := uc.UserUseCase.DeleteUserByID(c.Request.Context(), userID)
+	err := uc.UserUseCase.DeleteUserByID(ctx, userID)
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidUserID:
@@ -112,9 +126,11 @@ func (uc *UserController) DeleteUser(c *gin.Context) {
 
 // SearchUsers handles GET /users/search?q=query
 func (uc *UserController) SearchUsers(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
 	query := c.Query("q")
 
-	users, err := uc.UserUseCase.SearchUsers(c.Request.Context(), query)
+	users, err := uc.UserUseCase.SearchUsers(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search users"})
 		return
@@ -125,14 +141,16 @@ func (uc *UserController) SearchUsers(c *gin.Context) {
 
 // GetMyProfile handles GET /users/me
 func (uc *UserController) GetMyProfile(c *gin.Context) {
-	// Assuming you have middleware that sets the user ID in the context
-	userID, exists := c.Get("userID")
-	if !exists {
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
+	userID:= c.GetString("userID")
+	if  userID=="" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	user, err := uc.UserUseCase.GetMyData(c.Request.Context(), userID.(string))
+	user, err := uc.UserUseCase.GetMyData(ctx, userID)
 	if err != nil {
 		switch err {
 		case domain.ErrUserNotFound:
@@ -148,6 +166,8 @@ func (uc *UserController) GetMyProfile(c *gin.Context) {
 
 // UpdateProfile handles PUT /users/me
 func (uc *UserController) UpdateProfile(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5 * time.Second)
+    defer cancel()
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
@@ -163,7 +183,7 @@ func (uc *UserController) UpdateProfile(c *gin.Context) {
 	// Ensure the user can only update their own profile
 	user.UserID = userID.(string)
 
-	err := uc.UserUseCase.UpdateProfile(c.Request.Context(), &user)
+	err := uc.UserUseCase.UpdateProfile(ctx, &user)
 	if err != nil {
 		switch err {
 		case domain.ErrInvalidUserID:
