@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -173,7 +174,7 @@ func (au *AuthController) ChangePassword(c *gin.Context) {
 func (au *AuthController) ResetPassword(c *gin.Context) {
 	type payload struct {
 		Token       string `json:"token" binding:"required"`
-		NewPassword string `json:"new_password" binding:"required;min=6"`
+		NewPassword string `json:"new_password" binding:"required"`
 	}
 
 	var body payload
@@ -267,7 +268,7 @@ func (au *AuthController) ResendVerification(c *gin.Context) {
 // VerifyEmail handles verification of a user’s email via a token sent in the URL.
 // It validates the token and updates the user's verified status if valid.
 func (au *AuthController) VerifyEmail(c *gin.Context) {
-	token := c.Param("token")
+	token := c.Query("token")
 	if token == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "token missing"})
 		return
@@ -328,5 +329,16 @@ func (au *AuthController) Logout(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to log user out", "details": err.Error()})
 		return
 	}
+
+	// delete the authentication cookie after logout
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
 	c.Status(http.StatusOK)
 }

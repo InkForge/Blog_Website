@@ -108,7 +108,7 @@ func (uc *AuthUseCase) Register(ctx context.Context, input *domain.User, oauthUs
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
 		}
-		verificationLink := fmt.Sprintf("%s/verify?token=%s", uc.BaseURL, verificationToken)
+		verificationLink := fmt.Sprintf("%s/auth/verify?token=%s", uc.BaseURL, verificationToken)
 		emailBody := generateVerificationEmailBody(verificationLink)
 		if err = uc.NotificationService.SendEmail(newUser.Email, "Verify Your Email Address", emailBody); err != nil {
 			fmt.Println("email sending failed:", err)
@@ -370,7 +370,9 @@ func (uc *AuthUseCase) RequestPasswordReset(ctx context.Context, email string) e
 
 	}
 	//reset link
-	resetLink := fmt.Sprintf("%s/reset-password?token=%s", uc.BaseURL, resetToken)
+	// this link is mean to be sent to a frontend host where the token
+	// can be extracted and send to reset password along with the new password
+	resetLink := fmt.Sprintf("%s/auth/forget?token=%s", uc.BaseURL, resetToken)
 
 	emailBody := fmt.Sprintf(`
     <html>
@@ -402,6 +404,9 @@ func (uc *AuthUseCase) ResetPassword(ctx context.Context, token string, newPassw
 		return domain.ErrInvalidInput
 	}
 
+	if !validatePasswordStrength(newPassword) {
+		return fmt.Errorf("%w", domain.ErrWeakPassword)
+	}
 	//validate token
 	userID, err := uc.JWTService.ValidatePasswordResetToken(token)
 	if err != nil {

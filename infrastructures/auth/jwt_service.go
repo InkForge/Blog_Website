@@ -84,6 +84,7 @@ func (j *JWTService) parseToken(tokenString string, secret []byte) (jwt.MapClaim
 
 //validate access token 
 
+// returns userID, userRole and an error
 func (j *JWTService) ValidateAccessToken(tokenString string) (string, string, error) {
 	claims, err := j.parseToken(tokenString, j.accessSecret)
 	if err != nil {
@@ -93,7 +94,10 @@ func (j *JWTService) ValidateAccessToken(tokenString string) (string, string, er
 	if !ok {
 		return "", "", errors.New("invalid subject in token")
 	}
-	role, _ := claims["role"].(string) 
+	role, ok := claims["role"].(string) 
+	if !ok {
+		return "", "", errors.New("invalid role")
+	}
 	return sub, role, nil
 }
 
