@@ -2,29 +2,45 @@ package routes
 
 import (
 	"github.com/InkForge/Blog_Website/delivery/controllers"
+	infrastructures "github.com/InkForge/Blog_Website/infrastructures/auth"
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterCommentRoutes registers comment-related routes.
-func RegisterCommentRoutes(router *gin.Engine, commentController *controllers.CommentController) {
-	router.POST("/blogs/:blogID/comments", commentController.AddComment)
+// RegisterCommentAndReactionRoutes registers both comment and comment reaction routes in one group.
+func RegisterCommentAndReactionRoutes(
+	router *gin.Engine,
+	commentController *controllers.CommentController,
+	commentReactionController *controllers.CommentReactionController,
+	authService *infrastructures.AuthService,
+) {
+	// Public route: Anyone can view comments for a blog post
 	router.GET("/blogs/:blogID/comments", commentController.GetBlogComments)
-	router.PUT("/comments/:commentID", commentController.UpdateComment)
-	router.DELETE("/blogs/:blogID/comments/:commentID", commentController.RemoveComment)
+
+	// Authenticated group (users with "user" or "admin" roles)
+	authGroup := router.Group("/")
+	authGroup.Use(authService.AuthWithRole("user", "admin"))
+	{
+		// Comment CRUD
+		authGroup.POST("/blogs/:blogID/comments", commentController.AddComment)
+		authGroup.PUT("/comments/:commentID", commentController.UpdateComment)
+		authGroup.DELETE("/blogs/:blogID/comments/:commentID", commentController.RemoveComment)
+
+		// Comment Reactions
+		authGroup.POST("/comments/:commentID/react/:status", commentReactionController.ReactToComment)
+		authGroup.GET("/comments/:commentID/reaction", commentReactionController.GetUserReaction)
+	}
 }
 
-// RegisterCommentReactionRoutes registers comment reaction-related routes.
-func RegisterCommentReactionRoutes(router *gin.Engine, commentReactionController *controllers.CommentReactionController) {
-	router.POST("/comments/:commentID/react/:status", commentReactionController.ReactToComment)
-	router.GET("/comments/:commentID/reaction", commentReactionController.GetUserReaction)
-}
-
-// SetupRouter initializes the Gin engine and registers all routes.
-func SetupRouter(commentController *controllers.CommentController, commentReactionController *controllers.CommentReactionController) *gin.Engine {
+func SetupRouter(
+	commentController *controllers.CommentController,
+	commentReactionController *controllers.CommentReactionController,
+	authService *infrastructures.AuthService,
+) *gin.Engine {
+	
 	router := gin.Default()
 
-	RegisterCommentRoutes(router, commentController)
-	RegisterCommentReactionRoutes(router, commentReactionController)
+	// Register all comment & reaction routes 
+	RegisterCommentAndReactionRoutes(router, commentController, commentReactionController, authService)
 
 	return router
 }

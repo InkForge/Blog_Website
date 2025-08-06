@@ -8,22 +8,29 @@ import (
 )
 
 type CommentUsecase struct {
-	blogRepository       domain.IBlogRepository
-	commentRepository    domain.ICommentRepository
-	transactionManager   domain.ITransactionManager
+	blogRepository     domain.IBlogRepository
+	commentRepository  domain.ICommentRepository
+	transactionManager domain.ITransactionManager
 }
 
-// NewCommentUsecase creates a new comment use case instance with required dependencies
-func NewCommentUsecase(blogRepo domain.IBlogRepository, commentRepo domain.ICommentRepository, transactionManager domain.ITransactionManager) domain.ICommentUsecase {
+func NewCommentUsecase(
+	blogRepo domain.IBlogRepository,
+	commentRepo domain.ICommentRepository,
+	txManager domain.ITransactionManager,
+) domain.ICommentUsecase {
 	return &CommentUsecase{
 		blogRepository:     blogRepo,
 		commentRepository:  commentRepo,
-		transactionManager: transactionManager,
+		transactionManager: txManager,
 	}
 }
 
-// AddComment creates a new comment for a blog with transaction support to ensure data consistency
-func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment *domain.Comment) (string, error) {
+func (cu *CommentUsecase) AddComment(
+	ctx context.Context,
+	blogID string,
+	comment *domain.Comment,
+	role string,
+) (string, error) {
 	if comment == nil {
 		return "", domain.ErrCommentRequired
 	}
@@ -37,7 +44,6 @@ func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment
 		return "", domain.ErrInvalidUserID
 	}
 
-	// ensure blog exists
 	_, err := cu.blogRepository.GetByID(ctx, blogID)
 	if err != nil {
 		return "", domain.ErrBlogNotFound
@@ -51,22 +57,14 @@ func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment
 
 	var commentID string
 	err = cu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// Create the comment
 		id, err := cu.commentRepository.Create(txCtx, *comment)
 		if err != nil {
 			return err
 		}
 		commentID = id
 
-		// Add comment ID to blog
-		err = cu.blogRepository.AddCommentID(txCtx, blogID, commentID)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return cu.blogRepository.AddCommentID(txCtx, blogID, commentID)
 	})
-
 	if err != nil {
 		return "", err
 	}
@@ -74,8 +72,10 @@ func (cu *CommentUsecase) AddComment(ctx context.Context, blogID string, comment
 	return commentID, nil
 }
 
-// RemoveComment deletes a comment from a blog with transaction support to ensure data consistency
-func (cu *CommentUsecase) RemoveComment(ctx context.Context, blogID, commentID string) error {
+func (cu *CommentUsecase) RemoveComment(
+	ctx context.Context,
+	blogID, commentID, requesterID, role string,
+) error {
 	if blogID == "" {
 		return domain.ErrInvalidBlogID
 	}
@@ -88,37 +88,35 @@ func (cu *CommentUsecase) RemoveComment(ctx context.Context, blogID, commentID s
 		return domain.ErrCommentNotFound
 	}
 
-	err = cu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// Delete the comment
-		err := cu.commentRepository.Delete(txCtx, commentID)
-		if err != nil {
+	if role != "admin" && comment.User_id != requesterID {
+		return domain.ErrForbidden
+	}
+
+	return cu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := cu.commentRepository.Delete(txCtx, commentID); err != nil {
 			return err
 		}
-
-		// Remove comment ID from blog
-		err = cu.blogRepository.RemoveCommentID(txCtx, blogID, commentID)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return cu.blogRepository.RemoveCommentID(txCtx, blogID, commentID)
 	})
-
-	return err
 }
 
-// GetBlogComments retrieves all comments for a specific blog
-func (cu *CommentUsecase) GetBlogComments(ctx context.Context, blogID string) ([]domain.Comment, error) {
+func (cu *CommentUsecase) GetBlogComments(
+	ctx context.Context,
+	blogID string,
+) ([]domain.Comment, error) {
 	_, err := cu.blogRepository.GetByID(ctx, blogID)
 	if err != nil {
 		return nil, domain.ErrBlogNotFound
 	}
-
 	return cu.commentRepository.GetByBlogID(ctx, blogID)
 }
 
-// UpdateComment updates the content of an existing comment
-func (cu *CommentUsecase) UpdateComment(ctx context.Context, commentID string, comment *domain.Comment) error {
+func (cu *CommentUsecase) UpdateComment(
+	ctx context.Context,
+	commentID string,
+	comment *domain.Comment,
+	role string,
+) error {
 	if comment == nil || commentID == "" || comment.Content == "" {
 		return domain.ErrCommentRequired
 	}
@@ -128,8 +126,19 @@ func (cu *CommentUsecase) UpdateComment(ctx context.Context, commentID string, c
 		return domain.ErrCommentNotFound
 	}
 
+	if role != "admin" && comment.User_id != existing.User_id {
+		return domain.ErrForbidden
+	}
+
 	existing.Content = comment.Content
 	existing.Updated_at = time.Now()
 
 	return cu.commentRepository.Update(ctx, existing)
-} 
+}
+
+func (cu *CommentUsecase) GetCommentByID(
+	ctx context.Context,
+	commentID string,
+) (domain.Comment, error) {
+	return cu.commentRepository.GetByID(ctx, commentID)
+}
