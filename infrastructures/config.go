@@ -19,6 +19,7 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	DBDriver   string
+	DBUri      string
 
 	JWTSecretKey              string
 	JWTExpirationMinutes      int
@@ -70,6 +71,7 @@ func LoadConfig() (*Config, error) {
 		DBUser:     viper.GetString("DB_USER"),
 		DBPassword: viper.GetString("DB_PASSWORD"),
 		DBName:     viper.GetString("DB_NAME"),
+		DBUri:      viper.GetString("DB_URI"),
 
 		JWTSecretKey:              viper.GetString("JWT_SECRET_KEY"),
 		JWTExpirationMinutes:      viper.GetInt("JWT_EXPIRATION_MINUTES"),
