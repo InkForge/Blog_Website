@@ -12,22 +12,20 @@ import (
 type UserUseCase struct {
 
 	UserRepo            domain.IUserRepository	
-	ContextTimeout      time.Duration
+	
 }
 
 
 func NewUserUseCase(repo domain.IUserRepository, timeout time.Duration) domain.IUserUseCase {
 	return &UserUseCase{
 		UserRepo:            repo,
-		ContextTimeout:      timeout,
+		
 	}
 }
 
 //get user by ID
 func (uc *UserUseCase) GetUserByID( ctx context.Context ,userID string)(domain.User,error){
-	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
-	defer cancel()
-
+	
 	//check emptyness
 	if userID==""{
 		return domain.User{},domain.ErrInvalidUserID
@@ -44,8 +42,7 @@ func (uc *UserUseCase) GetUserByID( ctx context.Context ,userID string)(domain.U
 
 //get users
 func (uc *UserUseCase)GetUsers(ctx context.Context)([]domain.User,error){
-	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
-	defer cancel()
+
 	//declare variable
 	var users []domain.User
 
@@ -58,8 +55,7 @@ func (uc *UserUseCase)GetUsers(ctx context.Context)([]domain.User,error){
 }
 //delete user
 func (uc *UserUseCase)DeleteUserByID(ctx context.Context,userID string)(error){
-	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
-	defer cancel()
+	
 
 	if userID==""{
 		return domain.ErrInvalidUserID
@@ -68,8 +64,7 @@ func (uc *UserUseCase)DeleteUserByID(ctx context.Context,userID string)(error){
 }
 //search users
 func (uc *UserUseCase)SearchUsers(ctx context.Context,q string)([]domain.User,error){
-	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
-	defer cancel()
+	
 
 	return  uc.UserRepo.SearchUsers(ctx,q)
 }
