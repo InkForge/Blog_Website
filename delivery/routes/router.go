@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func newAuthRouter(authController controllers.AuthController, authService auth.AuthService, group gin.RouterGroup) {
+func NewAuthRouter(authController controllers.AuthController, authService auth.AuthService, group gin.RouterGroup) {
 
 	group.POST("/register", authController.Register)
 	group.POST("/login", authController.Login)
@@ -48,12 +48,17 @@ func SetupRouter(
 	commentController *controllers.CommentController,
 	commentReactionController *controllers.CommentReactionController,
 	authService *infrastructures.AuthService,
+	authController *controllers.AuthController,
+
 ) *gin.Engine {
 	
 	router := gin.Default()
 
 	// Register all comment & reaction routes 
 	RegisterCommentAndReactionRoutes(router, commentController, commentReactionController, authService)
+
+	authGroup := router.Group("auth")
+	NewAuthRouter(*authController, *authService, *authGroup)
 
 	return router
 }
