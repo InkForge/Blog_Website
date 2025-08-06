@@ -63,15 +63,9 @@ type IJWTService interface {
 	ValidateVerificationToken(token string) (userID string, err error)
 	GeneratePasswordResetToken(userID string) (string, error)
 	ValidatePasswordResetToken(token string) (userID string, err error)
-	RevokeRefreshToken(token string) error
-	IsRefreshTokenRevoked(token string) (bool, error)
 	GetAccessTokenRemaining(token string) (time.Duration, error)
 }
 
-type IRevocationRepository interface {
-	RevokeRefreshToken(token string, expiresAt time.Time) error
-	IsRefreshTokenRevoked(token string) (bool, error)
-}
 
 type OAuth2ProviderConfig struct {
 	ClientID     string
