@@ -34,8 +34,7 @@ func NewAuthUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw 
 
 // Register handles user registration, supporting both traditional and OAuth-based flows
 func (uc *AuthUseCase) Register(ctx context.Context, input *domain.User, oauthUser *domain.User) (*domain.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
-	defer cancel()
+	
 
 	var email string
 	if oauthUser != nil {
@@ -123,8 +122,7 @@ func (uc *AuthUseCase) Register(ctx context.Context, input *domain.User, oauthUs
 
 // Login handles user login usecase
 func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (*domain.LoginResult, error) {
-	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
-	defer cancel()
+	
 
 	// find user by email or username
 	var user *domain.User
@@ -221,8 +219,7 @@ func oauthUserProvider(oauthUser *domain.User) string {
 
 // logout usecase
 func (uc *AuthUseCase) Logout(ctx context.Context, userID string) error {
-	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
-	defer cancel()
+	
 
 	//check if empty
 	if userID == "" {
@@ -235,59 +232,62 @@ func (uc *AuthUseCase) Logout(ctx context.Context, userID string) error {
 	if err != nil {
 		return fmt.Errorf("%w", domain.ErrDatabaseOperationFailed)
 	}
-	refreshToken := user.RefreshToken
-	//call the revocation service
-	if err := uc.JWTService.RevokeRefreshToken(*refreshToken); err != nil {
-		return fmt.Errorf("%w: %v", domain.ErrTokenRevocationFailed, err)
+	//make the refresh token null
+	user.RefreshToken=nil
+
+	user.UpdatedAt=time.Now()
+
+	//update the user
+	err=uc.UserRepo.UpdateUser(ctx,user)
+	if err!=nil{
+		return domain.ErrDatabaseOperationFailed
 	}
+	
 	return nil
 }
 
 // refresh token
 func (uc *AuthUseCase) RefreshToken(ctx context.Context, userID string) (*string, *string, time.Duration, error) {
-	emptyToken := ""
-	//check emptyness
-	if userID == "" {
-		return &emptyToken, &emptyToken, 0, fmt.Errorf("%w", domain.ErrInvalidInput)
-	}
-	//find user
-	user, err := uc.UserRepo.FindByID(ctx, userID)
-	if err != nil {
-		return &emptyToken, &emptyToken, 0, domain.ErrDatabaseOperationFailed
-	}
-	refreshToken := user.RefreshToken
+    emptyToken := ""
 
-	//validate the refresh token
-	userID, role, err := uc.JWTService.ValidateRefreshToken(*refreshToken)
-	if err != nil {
-		return &emptyToken, &emptyToken, 0, domain.ErrTokenVerificationFailed
-	}
+    if userID == "" {
+        return &emptyToken, &emptyToken, 0, fmt.Errorf("%w", domain.ErrInvalidInput)
+    }
 
-	//generate new access token
-	newAccessToken, ExpiredTime, err := uc.JWTService.GenerateAccessToken(userID, role)
-	if err != nil {
-		return &emptyToken, &emptyToken, 0, domain.ErrTokenGenerationFailed
-	}
+    user, err := uc.UserRepo.FindByID(ctx, userID)
+    if err != nil {
+        return &emptyToken, &emptyToken, 0, domain.ErrDatabaseOperationFailed
+    }
 
-	//generate new  refresh token
-	newRefreshToken, err := uc.JWTService.GenerateRefreshToken(userID, role)
-	if err != nil {
-		return &emptyToken, &emptyToken, 0, domain.ErrTokenGenerationFailed
-	}
+    if user.RefreshToken == nil {
+        return &emptyToken, &emptyToken, 0, domain.ErrInvalidInput
+    }
 
-	user.AccessToken = &newAccessToken
-	user.RefreshToken = &newRefreshToken
-	user.UpdatedAt = time.Now()
+    userIDFromToken, role, err := uc.JWTService.ValidateRefreshToken(*user.RefreshToken)
+    if err != nil {
+        return &emptyToken, &emptyToken, 0, domain.ErrTokenVerificationFailed
+    }
 
-	//update the user
-	err = uc.UserRepo.UpdateUser(ctx, user)
-	if err != nil {
-		return &emptyToken, &emptyToken, 0, domain.ErrDatabaseOperationFailed
-	}
-	//return access refresh duration
+    newAccessToken, expiryTime, err := uc.JWTService.GenerateAccessToken(userIDFromToken, role)
+    if err != nil {
+        return &emptyToken, &emptyToken, 0, domain.ErrTokenGenerationFailed
+    }
 
-	return &newAccessToken, refreshToken, time.Duration(ExpiredTime), nil
+    newRefreshToken, err := uc.JWTService.GenerateRefreshToken(userIDFromToken, role)
+    if err != nil {
+        return &emptyToken, &emptyToken, 0, domain.ErrTokenGenerationFailed
+    }
 
+    user.AccessToken = &newAccessToken
+    user.RefreshToken = &newRefreshToken
+    user.UpdatedAt = time.Now()
+
+    err = uc.UserRepo.UpdateUser(ctx, user)
+    if err != nil {
+        return &emptyToken, &emptyToken, 0, domain.ErrDatabaseOperationFailed
+    }
+
+    return &newAccessToken, &newRefreshToken, time.Duration(expiryTime), nil
 }
 
 // verify email
@@ -352,8 +352,7 @@ func (uc *AuthUseCase) ResendVerificationEmail(ctx context.Context, email string
 
 // Request password reset
 func (uc *AuthUseCase) RequestPasswordReset(ctx context.Context, email string) error {
-	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
-	defer cancel()
+	
 
 	if !validateEmail(email) {
 		return fmt.Errorf("%w", domain.ErrInvalidEmailFormat)

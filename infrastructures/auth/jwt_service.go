@@ -12,14 +12,14 @@ import (
 type JWTService struct {
 	accessSecret  []byte
 	refreshSecret []byte
-	revocationRepo domain.IRevocationRepository
+	userRepo domain.IUserRepository
 }
 
-func NewJWTService(accessSecret string, refreshSecret string, revocationRepo domain.IRevocationRepository)  domain.IJWTService {
+func NewJWTService(accessSecret string, refreshSecret string, userRepo domain.IUserRepository)  domain.IJWTService {
 	return &JWTService{
 		accessSecret:  []byte(accessSecret),
 		refreshSecret: []byte(refreshSecret),
-		revocationRepo: revocationRepo,
+		userRepo: userRepo,
 	}
 }
 //generate access token 
@@ -98,28 +98,21 @@ func (j *JWTService) ValidateAccessToken(tokenString string) (string, string, er
 }
 
 func (j *JWTService) ValidateRefreshToken(tokenString string) (string, string, error) {
-
-	//check if it is revoked or not 
-	
-	revoked, err := j.IsRefreshTokenRevoked(tokenString)
-	if err != nil {
-		return "", "", err
-	}
-	if revoked {
-		return "", "", errors.New("refresh token revoked")
-	}
-
 	claims, err := j.parseToken(tokenString, j.refreshSecret)
 	if err != nil {
 		return "", "", err
 	}
+
 	sub, ok := claims["sub"].(string)
 	if !ok {
 		return "", "", errors.New("invalid subject in token")
 	}
+
 	role, _ := claims["role"].(string)
+
 	return sub, role, nil
 }
+
 
 
 
@@ -161,24 +154,7 @@ func (j *JWTService) ValidatePasswordResetToken(tokenString string) (string, err
 	return sub, nil
 }
 
-func (j *JWTService) RevokeRefreshToken(tokenString string) error {
-    claims, err := j.parseToken(tokenString, j.refreshSecret)
-    if err != nil {
-        return err
-    }
-    expFloat, ok := claims["exp"].(float64)
-    if !ok {
-        return errors.New("invalid exp claim")
-    }
-    exp := time.Unix(int64(expFloat), 0)
-    return j.revocationRepo.RevokeRefreshToken(tokenString, exp)
-}
 
-//function to check if th refresh token is revocked 
-
-func (j *JWTService) IsRefreshTokenRevoked(tokenString string) (bool, error) {
-    return j.revocationRepo.IsRefreshTokenRevoked(tokenString)
-}
 
 // helper to extract exp claim as int64
 func extractExp(claims jwt.MapClaims) (int64, error) {

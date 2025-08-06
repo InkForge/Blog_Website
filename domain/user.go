@@ -54,7 +54,7 @@ type IUserRepository interface {
 	GetAllUsers(c context.Context) ([]User, error)
 	SearchUsers(c context.Context, q string) ([]User, error)
 
-	UpdateTokens(c context.Context, userID string, accesToken string, refreshToken string) error
+	UpdateTokens(c context.Context, userID string, accesToken string, refreshToken string) error	
 	UpdateRole(c context.Context, userID string, role string) error
 }
 
