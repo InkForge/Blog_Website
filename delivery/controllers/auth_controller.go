@@ -81,7 +81,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 	}
 
 	// perform login
-	accessToken, refreshToken, user, err := ac.AuthUsecase.Login(ctx, &loginUser)
+	result, err := ac.AuthUsecase.Login(ctx, &loginUser)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidEmailFormat):
@@ -105,23 +105,30 @@ func (ac *AuthController) Login(c *gin.Context) {
 
 	// prepare sanitized user response
 	safeUser := gin.H{
-		"user_id":   user.UserID,
-		"email":     user.Email,
-		"username":  user.Username,
-		"firstName": user.FirstName,
-		"lastName":  user.LastName,
-		"role":      user.Role,
-		"provider":  user.Provider,
+		"user_id":   result.User.UserID,
+		"email":     result.User.Email,
+		"username":  result.User.Username,
+		"firstName": result.User.FirstName,
+		"lastName":  result.User.LastName,
+		"role":      result.User.Role,
+		"provider":  result.User.Provider,
 	}
 
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "auth_token",
+		Value:    result.AccessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(result.ExpiresIn.Seconds()),
+	})
+
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Login successful",
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"user":          safeUser,
+		"message": "Login successful",
+		"user":    safeUser,
 	})
 }
-
 
 // ChangePassword handles password change requests.
 // It requires the user to be authenticated and to provide the old and new passwords.

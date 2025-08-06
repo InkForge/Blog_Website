@@ -33,8 +33,8 @@ func NewAuthUseCase(repo domain.IUserRepository, ps domain.IPasswordService, jw 
 // register usecase
 
 // Register handles user registration, supporting both traditional and OAuth-based flows
-func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUser *domain.User) (*domain.User, error) {
-	ctx,cancel :=context.WithTimeout(ctx,uc.ContextTimeout)
+func (uc *AuthUseCase) Register(ctx context.Context, input *domain.User, oauthUser *domain.User) (*domain.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
 	defer cancel()
 
 	var email string
@@ -55,7 +55,7 @@ func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUse
 	}
 
 	// check if email already exists
-	count, err := uc.UserRepo.CountByEmail(ctx,email)
+	count, err := uc.UserRepo.CountByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrDatabaseOperationFailed, err)
 	}
@@ -98,7 +98,7 @@ func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUse
 	}
 
 	// save user to the database
-	err = uc.UserRepo.CreateUser(ctx,&newUser)
+	err = uc.UserRepo.CreateUser(ctx, &newUser)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrUserCreationFailed, err)
 	}
@@ -122,7 +122,7 @@ func (uc *AuthUseCase) Register(ctx context.Context,input *domain.User, oauthUse
 // login usecase
 
 // Login handles user login usecase
-func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (string, string, *domain.User, error) {
+func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (*domain.LoginResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
 	defer cancel()
 
@@ -137,38 +137,38 @@ func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (string, s
 	}
 
 	if err != nil {
-		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrInvalidCredentials, err)
+		return nil, fmt.Errorf("%w: %v", domain.ErrInvalidCredentials, err)
 	}
 
 	// reject login if registered via OAuth
 	if user.Provider != "" {
-		return "", "", nil, fmt.Errorf("%w", domain.ErrOAuthUserCannotLoginWithPassword)
+		return nil, fmt.Errorf("%w", domain.ErrOAuthUserCannotLoginWithPassword)
 	}
 
 	// check if email is verified
 	isVerified, err := uc.UserRepo.IsEmailVerified(ctx, user.UserID)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("%w", domain.ErrEmailVerficationFailed)
+		return nil, fmt.Errorf("%w", domain.ErrEmailVerficationFailed)
 	}
 	if !isVerified {
-		return "", "", nil, fmt.Errorf("%w", domain.ErrEmailNotVerified)
+		return nil, fmt.Errorf("%w", domain.ErrEmailNotVerified)
 	}
 
 	// compare passwords
-	if user.Password == nil || !uc.PasswordService.ComparePassword(*user.Password, *user.Password) {
-		return "", "", nil, fmt.Errorf("%w", domain.ErrInvalidCredentials)
+	if user.Password == nil || !uc.PasswordService.ComparePassword(*user.Password, *input.Password) {
+		return nil, fmt.Errorf("%w", domain.ErrInvalidCredentials)
 	}
 
 	// generate access token
-	accessToken, err := uc.JWTService.GenerateAccessToken(user.UserID, string(user.Role))
+	accessToken, expiresIn, err := uc.JWTService.GenerateAccessToken(user.UserID, string(user.Role))
 	if err != nil {
-		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+		return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
 	}
 
 	// generate refresh token
 	refreshToken, err := uc.JWTService.GenerateRefreshToken(user.UserID, string(user.Role))
 	if err != nil {
-		return "", "", nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+		return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
 	}
 
 	user.AccessToken = &accessToken
@@ -179,14 +179,19 @@ func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (string, s
 	// update the user (save the tokens into database)
 	err = uc.UserRepo.UpdateTokens(ctx, user.UserID, accessToken, refreshToken)
 	if err != nil {
-		return "", "", nil, domain.ErrDatabaseOperationFailed
+		return nil, domain.ErrDatabaseOperationFailed
+	}
+	result := domain.LoginResult{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    expiresIn,
+		User:         user,
 	}
 
-	return accessToken, refreshToken, user, nil
+	return &result, nil
 }
 
-
-//helper functions
+// helper functions
 func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
 	if field != nil {
 		return field
@@ -214,7 +219,7 @@ func oauthUserProvider(oauthUser *domain.User) string {
 	return oauthUser.Provider
 }
 
-//logout usecase
+// logout usecase
 func (uc *AuthUseCase) Logout(ctx context.Context, userID string) error {
 	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
 	defer cancel()
@@ -238,7 +243,7 @@ func (uc *AuthUseCase) Logout(ctx context.Context, userID string) error {
 	return nil
 }
 
-//refresh token
+// refresh token
 func (uc *AuthUseCase) RefreshToken(ctx context.Context, userID string) (*string, *string, time.Duration, error) {
 	emptyToken := ""
 	//check emptyness
@@ -259,7 +264,7 @@ func (uc *AuthUseCase) RefreshToken(ctx context.Context, userID string) (*string
 	}
 
 	//generate new access token
-	newAccessToken, err := uc.JWTService.GenerateAccessToken(userID, role)
+	newAccessToken, ExpiredTime, err := uc.JWTService.GenerateAccessToken(userID, role)
 	if err != nil {
 		return &emptyToken, &emptyToken, 0, domain.ErrTokenGenerationFailed
 	}
@@ -272,10 +277,6 @@ func (uc *AuthUseCase) RefreshToken(ctx context.Context, userID string) (*string
 
 	user.AccessToken = &newAccessToken
 	user.RefreshToken = &newRefreshToken
-	ExpiredTime, err := uc.JWTService.GetAccessTokenRemaining(*user.AccessToken)
-	if err != nil {
-		return &emptyToken, &emptyToken, 0, domain.ErrGetTokenExpiryFailed
-	}
 	user.UpdatedAt = time.Now()
 
 	//update the user
@@ -289,7 +290,7 @@ func (uc *AuthUseCase) RefreshToken(ctx context.Context, userID string) (*string
 
 }
 
-//verify email
+// verify email
 func (uc *AuthUseCase) VerifyEmail(ctx context.Context, token string) error {
 	//check emptyness
 
@@ -321,7 +322,7 @@ func (uc *AuthUseCase) VerifyEmail(ctx context.Context, token string) error {
 
 }
 
-//resend verification email
+// resend verification email
 func (uc *AuthUseCase) ResendVerificationEmail(ctx context.Context, email string) error {
 	//check validity
 	if !validateEmail(email) {
@@ -349,7 +350,7 @@ func (uc *AuthUseCase) ResendVerificationEmail(ctx context.Context, email string
 	return nil
 }
 
-//Request password reset
+// Request password reset
 func (uc *AuthUseCase) RequestPasswordReset(ctx context.Context, email string) error {
 	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
 	defer cancel()
@@ -395,7 +396,7 @@ func (uc *AuthUseCase) RequestPasswordReset(ctx context.Context, email string) e
 
 }
 
-//reset password
+// reset password
 func (uc *AuthUseCase) ResetPassword(ctx context.Context, token string, newPassword string) error {
 	//check emptyness
 	if newPassword == "" || token == "" {
@@ -432,7 +433,7 @@ func (uc *AuthUseCase) ResetPassword(ctx context.Context, token string, newPassw
 	return nil
 }
 
-//change password
+// change password
 func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPassword string, newPassword string) error {
 	//check emptyness
 	if oldPassword == "" || newPassword == "" {
@@ -474,7 +475,6 @@ func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID string, oldPas
 
 }
 
-
 //function to validate email
 
 func validateEmail(email string) bool {
@@ -483,7 +483,7 @@ func validateEmail(email string) bool {
 
 }
 
-// function to validate password strength 
+// function to validate password strength
 
 func validatePasswordStrength(password string) bool {
 	if len(password) < 8 {
@@ -504,7 +504,6 @@ func validatePasswordStrength(password string) bool {
 
 	return hasLetter && hasNumber
 }
-
 
 //function to generate verification email body
 

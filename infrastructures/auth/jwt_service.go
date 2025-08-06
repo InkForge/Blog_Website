@@ -23,7 +23,7 @@ func NewJWTService(accessSecret string, refreshSecret string, revocationRepo dom
 	}
 }
 //generate access token 
-func (j *JWTService) GenerateAccessToken(userID string, role string) (string, error) {
+func (j *JWTService) GenerateAccessToken(userID string, role string) (string, time.Duration, error) {
 	claims := jwt.MapClaims{
 		"sub":  userID,
 		"role": role,
@@ -31,7 +31,11 @@ func (j *JWTService) GenerateAccessToken(userID string, role string) (string, er
 		"iat":  time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(j.accessSecret)
+	tokenString, err :=  token.SignedString(j.accessSecret)
+	if err != nil {
+		return "", 0, err
+	}
+	return tokenString, 15 * time.Minute, nil
 }
 
 //generate refresh token with longer expiry time 
