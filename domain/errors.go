@@ -78,7 +78,8 @@ var (
 	ErrGetTokenExpiryFailed             = errors.New("failed to get token expiration time")
 	ErrWeakPassword                     = errors.New("password is too weak")
 	ErrInvalidRole                      = errors.New("invalid role specified")
-
+	ErrInvalidOAuthUserData             = errors.New("invalid OAuth user data")
+	ErrOAuthProviderMismatch             = errors.New("OAuth provider mismatch for this account")
 	// ─── Generic Errors ────────────────────────────────────────────────────
 	ErrInternalServerError = errors.New("internal server error")
 	ErrForbidden = errors.New("forbidden: you do not have permission")
