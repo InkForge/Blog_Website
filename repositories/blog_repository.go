@@ -379,7 +379,6 @@ func (r *BlogMongoRepository) AddCommentID(ctx context.Context, blogID, commentI
 	}
 
 	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
-		"$push": bson.M{"comment_ids": commentID},
 		"$inc":  bson.M{"comment_count": 1},
 	})
 	if err != nil {
@@ -395,7 +394,6 @@ func (r *BlogMongoRepository) RemoveCommentID(ctx context.Context, blogID, comme
 	}
 
 	_, err = r.blogCollection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{
-		"$pull": bson.M{"comment_ids": commentID},
 		"$inc":  bson.M{"comment_count": -1},
 	})
 	if err != nil {
