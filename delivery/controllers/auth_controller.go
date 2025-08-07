@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -13,6 +12,11 @@ import (
 
 type AuthController struct {
 	AuthUsecase domain.IAuthUsecase
+}
+
+// new auth controller 
+func NewAuthController(uc domain.IAuthUsecase) *AuthController {
+	return &AuthController{AuthUsecase: uc}
 }
 
 // user register controller
