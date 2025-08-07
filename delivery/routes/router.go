@@ -60,16 +60,16 @@ func RegisterCommentAndReactionRoutes(
 	authService *infrastructures.AuthService,
 ) {
 	// Public route: Anyone can view comments for a blog post
-	router.GET("/blogs/:blogID/comments", commentController.GetBlogComments)
+	router.GET("/blogs/:id/comments", commentController.GetBlogComments)
 
 	// Authenticated group (users with "user" or "admin" roles)
 	authGroup := router.Group("/")
 	authGroup.Use(authService.AuthWithRole("user", "admin"))
 	{
 		// Comment CRUD
-		authGroup.POST("/blogs/:blogID/comments", commentController.AddComment)
+		authGroup.POST("/blogs/:id/comments", commentController.AddComment)
 		authGroup.PUT("/comments/:commentID", commentController.UpdateComment)
-		authGroup.DELETE("/blogs/:blogID/comments/:commentID", commentController.RemoveComment)
+		authGroup.DELETE("/blogs/:id/comments/:commentID", commentController.RemoveComment)
 
 		// Comment Reactions
 		authGroup.POST("/comments/:commentID/react/:status", commentReactionController.ReactToComment)

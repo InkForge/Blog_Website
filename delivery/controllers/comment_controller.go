@@ -20,7 +20,7 @@ func NewCommentController(usecase domain.ICommentUsecase) *CommentController {
 }
 
 func (cc *CommentController) AddComment(c *gin.Context) {
-	blogID := c.Param("blogID")
+	blogID := c.Param("id")
 	userID := c.GetString("userID")
 	role := c.GetString("userRole")
 
@@ -86,7 +86,7 @@ func (cc *CommentController) UpdateComment(c *gin.Context) {
 }
 
 func (cc *CommentController) RemoveComment(c *gin.Context) {
-	blogID := c.Param("blogID")
+	blogID := c.Param("id")
 	commentID := c.Param("commentID")
 	userID := c.GetString("userID")
 	role := c.GetString("userRole")
@@ -110,7 +110,7 @@ func (cc *CommentController) RemoveComment(c *gin.Context) {
 }
 
 func (cc *CommentController) GetBlogComments(c *gin.Context) {
-	blogID := c.Param("blogID")
+	blogID := c.Param("id")
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
