@@ -69,8 +69,10 @@ type IBlogRepository interface {
 type IBlogUseCase interface {
 	CreateBlog(ctx context.Context, blog *Blog) (string, error)
 	GetAllBlogs(ctx context.Context, page, limit int) (*PaginatedBlogs, error)
-	GetBlogByID(ctx context.Context, blogID, userID string) (*Blog, error)
-	UpdateBlog(ctx context.Context, blog *Blog) error
+
+	GetBlogByID(ctx context.Context, blogID, userID string) (Blog, error)
+	UpdateBlog(ctx context.Context, blog *Blog, userID string) error
+
 	DeleteBlog(ctx context.Context, blogID string) error
 
 	SearchBlogs(ctx context.Context, title, author string, page, limit int) (*PaginatedBlogs, error)

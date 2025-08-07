@@ -35,7 +35,8 @@ func (bc *BlogController) CreateBlog(c *gin.Context) {
 	}
 
 	// obtaining  userID from auth , set by jwt
-	userID, exists := c.Get("user_id")
+
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
 		return
@@ -129,7 +130,7 @@ func (bc *BlogController) GetBlogByID(c *gin.Context) {
 	blogID := c.Param("id")
 
 	// obtaining  userID from auth , set by jwt
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
 		return
@@ -188,12 +189,26 @@ func (bc *BlogController) UpdateBlog(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Payload", "details": err.Error()})
 		return
 	}
+
+	// obtaining  userID from auth , set by jwt
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+		return
+	}
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error: user ID is of wrong type"})
+		return
+	}
 	jsonBlog.BlogID = blogID
 
 	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
 	defer cancel()
 
-	err := bc.BlogUsecase.UpdateBlog(ctx, jsonBlog.ToDomainBlog())
+
+	err := bc.BlogUsecase.UpdateBlog(ctx, jsonBlog.ToDomainBlog(), userIDStr)
+
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
