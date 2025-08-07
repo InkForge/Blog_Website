@@ -44,21 +44,36 @@ func RegisterCommentAndReactionRoutes(
 	}
 }
 
+func RegisterOAuthRoutes(
+	router *gin.Engine,
+	oauthController *controllers.OAuth2Controller,
+) {
+	oauth := router.Group("/oauth")
+	{
+		oauth.GET("/:provider/login", oauthController.RedirectToProvider)
+		oauth.GET("/:provider/callback", oauthController.HandleCallback)
+	}
+}
+
+
 func SetupRouter(
 	commentController *controllers.CommentController,
 	commentReactionController *controllers.CommentReactionController,
 	authService *infrastructures.AuthService,
 	authController *controllers.AuthController,
+	oauthController *controllers.OAuth2Controller,
 
 ) *gin.Engine {
 	
 	router := gin.Default()
 
-	// Register all comment & reaction routes 
+	//Register all comment & reaction routes 
 	RegisterCommentAndReactionRoutes(router, commentController, commentReactionController, authService)
 
-	authGroup := router.Group("auth")
+	authGroup := router.Group("/auth")
 	NewAuthRouter(*authController, *authService, *authGroup)
+
+	RegisterOAuthRoutes(router, oauthController)
 
 	return router
 }
