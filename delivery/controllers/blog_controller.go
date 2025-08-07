@@ -173,7 +173,7 @@ func (bc *BlogController) GetBlogByID(c *gin.Context) {
 		}
 		return
 	}
-	jsonBlog := dto.FromDomainBlog(&blog)
+	jsonBlog := dto.FromDomainBlog(blog)
 
 	c.JSON(http.StatusOK, gin.H{"blog": jsonBlog})
 }
@@ -193,7 +193,7 @@ func (bc *BlogController) UpdateBlog(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
 	defer cancel()
 
-	err := bc.BlogUsecase.UpdateBlog(ctx, *jsonBlog.ToDomainBlog())
+	err := bc.BlogUsecase.UpdateBlog(ctx, jsonBlog.ToDomainBlog())
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
