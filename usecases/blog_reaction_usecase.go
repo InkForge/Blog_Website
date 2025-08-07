@@ -18,7 +18,7 @@ func NewBlogReactionUseCase(
 	blogRepo domain.IBlogRepository,
 	blogReactionRepo domain.IBlogReactionRepository,
 	transactionManager domain.ITransactionManager,
-) *BlogReactionUseCase {
+) domain.IBlogReactionUsecase {
 	return &BlogReactionUseCase{
 		blogRepo:           blogRepo,
 		blogReactionRepo:   blogReactionRepo,

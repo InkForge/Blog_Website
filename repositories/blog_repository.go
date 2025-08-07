@@ -18,7 +18,7 @@ type BlogMongoRepository struct {
 	blogCollection *mongo.Collection
 }
 
-func NewBlogMongoRepository(db *mongo.Database) *BlogMongoRepository {
+func NewBlogMongoRepository(db *mongo.Database) domain.IBlogRepository {
 	return &BlogMongoRepository{
 		blogCollection: db.Collection("blogs"),
 	}

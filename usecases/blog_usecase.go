@@ -20,7 +20,7 @@ func NewBlogUsecase(blogRepo domain.IBlogRepository,
 	blogViewRepo domain.IBlogViewRepository,
 	tagRepo domain.ITagRepository,
 	userRepo domain.IUserRepository,
-	transactionManager domain.ITransactionManager) *BlogUsecase {
+	transactionManager domain.ITransactionManager) domain.IBlogUseCase {
 	return &BlogUsecase{
 		blogRepo:           blogRepo,
 		blogViewRepo:       blogViewRepo,
@@ -168,12 +168,15 @@ func (bu *BlogUsecase) GetBlogByID(ctx context.Context, blogID, userID string) (
 	return &fetchedBlog, nil
 }
 
-func (bu *BlogUsecase) UpdateBlog(ctx context.Context, blog *domain.Blog) error {
+func (bu *BlogUsecase) UpdateBlog(ctx context.Context, blog *domain.Blog, userID string) error {
 	if blog == nil {
 		return domain.ErrBlogRequired
 	}
 	if blog.Blog_id == "" {
 		return domain.ErrBlogIDRequired
+	}
+	if blog.User_id != userID {
+		return domain.ErrNotBlogAuthor
 	}
 
 	return bu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
