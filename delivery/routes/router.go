@@ -110,7 +110,7 @@ func SetupRouter(
 	RegisterBlogReactionRoutes(router, blogReactionController, authService)
 
 	// Auth routes
-	authGroup := router.Group("auth")
+	authGroup := router.Group("/auth")
 	NewAuthRouter(*authController, *authService, *authGroup)
 
 	RegisterOAuthRoutes(router, oauthController)
