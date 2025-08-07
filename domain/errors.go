@@ -14,6 +14,7 @@ var (
 	ErrInvalidUserID       = errors.New("user_id is required")
 	ErrBlogIDRequired      = errors.New("blog ID is required")
 	ErrIncrementViewFailed = errors.New("failed to increment blog view count")
+	ErrNotBlogAuthor       = errors.New("user is not the author of the blog")
 
 	// ─── Blog Reaction Errors ──────────────────────────────────────────────
 	ErrBlogReactionNotFound     = errors.New("blog reaction not found")
@@ -21,7 +22,6 @@ var (
 	ErrCreateBlogReactionFailed = errors.New("failed to create blog reaction")
 	ErrUpdateBlogReactionFailed = errors.New("failed to update blog reaction")
 	ErrIncrementLikeFailed      = errors.New("failed to increment like count")
-	ErrIncrementDisLikeFailed   = errors.New("failed to increment like count")
 	ErrToggleLikeDislikeFailed  = errors.New("failed to toggle like/dislike counts")
 	ErrDeletingBlogReaction     = errors.New("failed to delete blog reaction")
 
@@ -36,6 +36,7 @@ var (
 	ErrCommentRequired      = errors.New("comment cannot be nil")
 	ErrEmptyCommentContent  = errors.New("comment content is required")
 	ErrCommentIDRequired    = errors.New("comment ID is required")
+	ErrForbidden            = errors.New("forbidden")
 
 	// ─── Comment Reaction Errors ──────────────────────────────────────────
 	ErrCommentReactionNotFound = errors.New("comment reaction not found")
@@ -73,6 +74,8 @@ var (
 	ErrUserUpdateFailed                 = errors.New("user update failed")
 	ErrEmailVerficationFailed           = errors.New("email verification failed")
 	ErrTokenVerificationFailed          = errors.New("token verification failed")
+	ErrInvalidRole                      = errors.New("invalid role")
+	ErrWeakPassword                     = errors.New("weak password")
 	ErrPasswordMismatch                 = errors.New("passwords do not match")
 	ErrUserVerified                     = errors.New("user already verified")
 	ErrGetTokenExpiryFailed             = errors.New("failed to get token expiration time")
@@ -80,7 +83,7 @@ var (
 	ErrInvalidRole                      = errors.New("invalid role specified")
 	ErrInvalidOAuthUserData             = errors.New("invalid OAuth user data")
 	ErrOAuthProviderMismatch             = errors.New("OAuth provider mismatch for this account")
+
 	// ─── Generic Errors ────────────────────────────────────────────────────
 	ErrInternalServerError = errors.New("internal server error")
-	ErrForbidden = errors.New("forbidden: you do not have permission")
 )

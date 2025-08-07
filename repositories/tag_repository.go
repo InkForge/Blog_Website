@@ -14,7 +14,7 @@ type TagMongoRepository struct {
 	tagCollection *mongo.Collection
 }
 
-func NewTagMongoRepository(db *mongo.Database) *TagMongoRepository {
+func NewTagMongoRepository(db *mongo.Database) domain.ITagRepository {
 	return &TagMongoRepository{
 		tagCollection: db.Collection("tags"),
 	}

@@ -13,7 +13,7 @@ type BlogReactionRepository struct {
 	collection *mongo.Collection
 }
 
-func NewBlogReactionRepository(db *mongo.Database) *BlogReactionRepository {
+func NewBlogReactionRepository(db *mongo.Database) domain.IBlogReactionRepository {
 	return &BlogReactionRepository{
 		collection: db.Collection("blog_reactions"),
 	}

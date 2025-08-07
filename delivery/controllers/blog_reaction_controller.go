@@ -24,7 +24,7 @@ func (bc *BlogReactionController) LikeBlog(c *gin.Context) {
 	ogCtx := c.Request.Context()
 	blogID := c.Param("id")
 
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
 		return
@@ -75,7 +75,8 @@ func (bc *BlogReactionController) LikeBlog(c *gin.Context) {
 func (bc *BlogReactionController) DislikeBlog(c *gin.Context) {
 	ogCtx := c.Request.Context()
 	blogID := c.Param("id")
-	userID, exists := c.Get("user_id")
+
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
 		return
@@ -125,7 +126,7 @@ func (bc *BlogReactionController) DislikeBlog(c *gin.Context) {
 func (bc *BlogReactionController) UnlikeBlog(c *gin.Context) {
 	ogCtx := c.Request.Context()
 	blogID := c.Param("id")
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
 		return
@@ -167,7 +168,7 @@ func (bc *BlogReactionController) UnlikeBlog(c *gin.Context) {
 func (bc *BlogReactionController) UndislikeBlog(c *gin.Context) {
 	ogCtx := c.Request.Context()
 	blogID := c.Param("id")
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
 		return
