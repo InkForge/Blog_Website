@@ -3,9 +3,42 @@ package routes
 import (
 	"github.com/InkForge/Blog_Website/delivery/controllers"
 	auth "github.com/InkForge/Blog_Website/infrastructures/auth"
-  infrastructures "github.com/InkForge/Blog_Website/infrastructures/auth"
+	infrastructures "github.com/InkForge/Blog_Website/infrastructures/auth"
 	"github.com/gin-gonic/gin"
 )
+
+// RegisterBlogRoutes registers blog-related routes.
+func RegisterBlogRoutes(router *gin.Engine, blogController *controllers.BlogController, authService *infrastructures.AuthService) {
+	// Public routes
+	router.GET("/blogs", blogController.GetAllBlogs)
+	router.GET("/blogs/:id", blogController.GetBlogByID)
+
+	// Authenticated group (users with "user" or "admin" roles)
+	authGroup := router.Group("/")
+	authGroup.Use(authService.AuthWithRole("user", "admin"))
+	{
+		authGroup.POST("/blogs", blogController.CreateBlog)
+		authGroup.PUT("/blogs/:id", blogController.UpdateBlog)
+		authGroup.DELETE("/blogs/:id", blogController.DeleteBlog)
+	}
+
+	// Search and filter endpoints (public)
+	router.GET("/blogs/search", blogController.Search)
+	router.GET("/blogs/filter", blogController.FilterBlogs)
+}
+
+// RegisterBlogReactionRoutes registers blog reaction routes.
+func RegisterBlogReactionRoutes(router *gin.Engine, blogReactionController *controllers.BlogReactionController, authService *infrastructures.AuthService) {
+	// Authenticated group (users with "user" or "admin" roles)
+	authGroup := router.Group("/")
+	authGroup.Use(authService.AuthWithRole("user", "admin"))
+	{
+		authGroup.POST("/blogs/:id/like", blogReactionController.LikeBlog)
+		authGroup.POST("/blogs/:id/dislike", blogReactionController.DislikeBlog)
+		authGroup.POST("/blogs/:id/unlike", blogReactionController.UnlikeBlog)
+		authGroup.POST("/blogs/:id/undislike", blogReactionController.UndislikeBlog)
+	}
+}
 
 func NewAuthRouter(authController controllers.AuthController, authService auth.AuthService, group gin.RouterGroup) {
 
@@ -44,21 +77,43 @@ func RegisterCommentAndReactionRoutes(
 	}
 }
 
+func RegisterOAuthRoutes(
+	router *gin.Engine,
+	oauthController *controllers.OAuth2Controller,
+) {
+	oauth := router.Group("/oauth")
+	{
+		oauth.GET("/:provider/login", oauthController.RedirectToProvider)
+		oauth.GET("/:provider/callback", oauthController.HandleCallback)
+	}
+}
+
+
 func SetupRouter(
 	commentController *controllers.CommentController,
 	commentReactionController *controllers.CommentReactionController,
+	blogController *controllers.BlogController,
+	blogReactionController *controllers.BlogReactionController,
 	authService *infrastructures.AuthService,
 	authController *controllers.AuthController,
-
+	oauthController *controllers.OAuth2Controller,
 ) *gin.Engine {
-	
 	router := gin.Default()
-
-	// Register all comment & reaction routes 
+  
+	// Register comment & reaction routes
 	RegisterCommentAndReactionRoutes(router, commentController, commentReactionController, authService)
 
-	authGroup := router.Group("auth")
+	// Register blog routes
+	RegisterBlogRoutes(router, blogController, authService)
+
+	// Register blog reaction routes
+	RegisterBlogReactionRoutes(router, blogReactionController, authService)
+
+	// Auth routes
+	authGroup := router.Group("/auth")
 	NewAuthRouter(*authController, *authService, *authGroup)
+
+	RegisterOAuthRoutes(router, oauthController)
 
 	return router
 }

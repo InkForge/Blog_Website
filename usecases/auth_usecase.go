@@ -85,9 +85,10 @@ func (uc *AuthUseCase) Register(ctx context.Context, input *domain.User, oauthUs
 	// construct user model
 	newUser := domain.User{
 		Role:           role,
-		Username:       chooseNonEmpty(input.Username, oauthUser),
-		FirstName:      chooseNonEmpty(input.FirstName, oauthUser),
-		LastName:       chooseNonEmpty(input.LastName, oauthUser),
+		Username:  chooseNonEmpty(get(input, func(u *domain.User) *string { return u.Username }), get(oauthUser, func(u *domain.User) *string { return u.Username })),
+		FirstName: chooseNonEmpty(get(input, func(u *domain.User) *string { return u.FirstName }), get(oauthUser, func(u *domain.User) *string { return u.FirstName })),
+		LastName:  chooseNonEmpty(get(input, func(u *domain.User) *string { return u.LastName }), get(oauthUser, func(u *domain.User) *string { return u.LastName })),
+
 		Email:          email,
 		Password:       hashedPassword,
 		ProfilePicture: oauthUserPicture(oauthUser),
@@ -189,18 +190,80 @@ func (uc *AuthUseCase) Login(ctx context.Context, input *domain.User) (*domain.L
 	return &result, nil
 }
 
-// helper functions
-func chooseNonEmpty(field *string, oauthUser *domain.User) *string {
-	if field != nil {
-		return field
+// OAuthLogin logs in or registers a user via an OAuth2 provider
+func (uc *AuthUseCase) OAuthLogin(ctx context.Context, oauthUser *domain.User) (*domain.LoginResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, uc.ContextTimeout)
+	defer cancel()
+
+	if oauthUser == nil || oauthUser.Email == "" {
+		return nil, domain.ErrInvalidOAuthUserData
 	}
-	if oauthUser == nil {
+
+	// check if the user exists
+	user, err := uc.UserRepo.FindByEmail(ctx, oauthUser.Email)
+	if err != nil {
+		// if user doesn't exist, register them
+		if err == domain.ErrUserNotFound {
+			user, err = uc.Register(ctx, nil, oauthUser)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, domain.ErrDatabaseOperationFailed
+		}
+	}
+
+	// ensure this user was created via the same provider
+	if user.Provider != oauthUser.Provider {
+		return nil, fmt.Errorf("%w: expected %s but got %s", domain.ErrOAuthProviderMismatch, user.Provider, oauthUser.Provider)
+	}
+
+	// generate access token
+	accessToken, expiresIn, err := uc.JWTService.GenerateAccessToken(user.UserID, string(user.Role))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
+
+	// generate refresh token
+	refreshToken, err := uc.JWTService.GenerateRefreshToken(user.UserID, string(user.Role))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", domain.ErrTokenGenerationFailed, err)
+	}
+
+	// update tokens in db
+	err = uc.UserRepo.UpdateTokens(ctx, user.UserID, accessToken, refreshToken)
+	if err != nil {
+		return nil, domain.ErrDatabaseOperationFailed
+	}
+
+	user.AccessToken = &accessToken
+	user.RefreshToken = &refreshToken
+	user.UpdatedAt = time.Now()
+
+	return &domain.LoginResult{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    expiresIn,
+		User:         user,
+	}, nil
+}
+
+// helper functions
+func chooseNonEmpty(primary *string, fallback *string) *string {
+	if primary != nil && *primary != "" {
+		return primary
+	}
+	if fallback != nil && *fallback != "" {
+		return fallback
+	}
+	return nil
+}
+
+func get(u *domain.User, f func(*domain.User) *string) *string {
+	if u == nil {
 		return nil
 	}
-	if oauthUser.FirstName != nil && *oauthUser.FirstName != "" {
-		return oauthUser.FirstName
-	}
-	return oauthUser.Name
+	return f(u)
 }
 
 func oauthUserPicture(oauthUser *domain.User) *string {

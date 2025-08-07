@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"time"
+
+	"golang.org/x/oauth2"
 )
 
 type IAuthUsecase interface {
@@ -45,6 +47,10 @@ type IAuthUsecase interface {
 	// ChangePassword allows an authenticated user to change their password by
 	// verifying the old password and updating with the new one.
 	ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error
+
+	// OAuthLogin handles login/registration via an external OAuth2 provider.
+	OAuthLogin(ctx context.Context, oauthUser *User) (*LoginResult, error)
+
 }
 
 //PasswordService Interface
@@ -72,6 +78,7 @@ type OAuth2ProviderConfig struct {
 	ClientSecret string
 	RedirectURL  string
 	Scopes       []string
+	Endpoint     oauth2.Endpoint
 }
 
 // OAuth2 providers interface

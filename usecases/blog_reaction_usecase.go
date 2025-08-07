@@ -71,7 +71,6 @@ func (uc *BlogReactionUseCase) LikeBlog(ctx context.Context, blog_id, user_id st
 
 func (uc *BlogReactionUseCase) DislikeBlog(ctx context.Context, blog_id, user_id string) error {
 
-
 	return uc.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// checking if we are creating a new record or updating existing
 		existingReaction, err := uc.blogReactionRepo.GetReactionByUserAndBlog(txCtx, blog_id, user_id)

@@ -43,6 +43,17 @@ type Config struct {
 	AllowedOrigins []string
 	LogLevel       string
 	Timezone       string
+
+	GoogleClientID         string
+	GoogleClientSecret     string
+	GoogleRedirectURL      string
+	GithubClientID         string
+	GithubClientSecret     string
+	GithubRedirectURL      string
+	FacebookClientID       string
+	FacebookClientSecret   string
+	FacebookRedirectURL    string
+
 }
 
 // LoadConfig loads config.env file using absolute project path which looks for
@@ -95,6 +106,16 @@ func LoadConfig() (*Config, error) {
 		AllowedOrigins: strings.Split(viper.GetString("ALLOWED_ORIGINS"), ","),
 		LogLevel:       viper.GetString("LOG_LEVEL"),
 		Timezone:       viper.GetString("TIMEZONE"),
+
+		GoogleClientID:       viper.GetString("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret:   viper.GetString("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:    viper.GetString("GOOGLE_REDIRECT_URL"),
+		GithubClientID:       viper.GetString("GITHUB_CLIENT_ID"),
+		GithubClientSecret:   viper.GetString("GITHUB_CLIENT_SECRET"),
+		GithubRedirectURL:    viper.GetString("GITHUB_REDIRECT_URL"),
+		FacebookClientID:     viper.GetString("FACEBOOK_CLIENT_ID"),
+		FacebookClientSecret: viper.GetString("FACEBOOK_CLIENT_SECRET"),
+		FacebookRedirectURL:  viper.GetString("FACEBOOK_REDIRECT_URL"),
 	}
 
 	return cfg, nil

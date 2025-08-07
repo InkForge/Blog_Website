@@ -16,14 +16,13 @@ type BlogUsecase struct {
 	transactionManager domain.ITransactionManager
 }
 
-
-func NewBlogUsecase(
-	blogRepo domain.IBlogRepository,
+func NewBlogUsecase(blogRepo domain.IBlogRepository,
 	blogViewRepo domain.IBlogViewRepository,
 	tagRepo domain.ITagRepository,
 	userRepo domain.IUserRepository,
 	transactionManager domain.ITransactionManager,
 ) domain.IBlogUseCase {
+
 	return &BlogUsecase{
 		blogRepo:           blogRepo,
 		blogViewRepo:       blogViewRepo,
@@ -33,9 +32,6 @@ func NewBlogUsecase(
 	}
 }
 
-
-
-// It finds existing tags, creates new ones if they don't exist, and returns all tag IDs.
 func (bu *BlogUsecase) ensureTagsExist(ctx context.Context, tagNames []string) ([]string, error) {
 	if len(tagNames) == 0 {
 		return nil, nil
@@ -70,7 +66,6 @@ func (bu *BlogUsecase) ensureTagsExist(ctx context.Context, tagNames []string) (
 		}
 	}
 
-	// Collect all tag IDs (existing + newly created)
 	allTagIDs := make([]string, 0, len(existingTags)+len(createdTags))
 	allTagIDs = append(allTagIDs, existingTagIDs...)
 	for _, t := range createdTags {
@@ -81,7 +76,6 @@ func (bu *BlogUsecase) ensureTagsExist(ctx context.Context, tagNames []string) (
 }
 
 func (bu *BlogUsecase) CreateBlog(ctx context.Context, blog *domain.Blog) (string, error) {
-	// Input Validation
 	if blog == nil {
 		return "", domain.ErrBlogRequired
 	}
@@ -95,10 +89,8 @@ func (bu *BlogUsecase) CreateBlog(ctx context.Context, blog *domain.Blog) (strin
 		return "", domain.ErrInvalidUserID
 	}
 
-	// This is a multi-step operation, so it must be wrapped in a transaction
 	var blogID string
 	err := bu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// Handle tags: create new tags if needed, store all tag IDs
 		if len(blog.Tag_ids) > 0 {
 			allTagIDs, err := bu.ensureTagsExist(txCtx, blog.Tag_ids)
 			if err != nil {
@@ -107,7 +99,6 @@ func (bu *BlogUsecase) CreateBlog(ctx context.Context, blog *domain.Blog) (strin
 			blog.Tag_ids = allTagIDs
 		}
 
-		// Set default values (timestamps and counters)
 		now := time.Now()
 		blog.Created_at = now
 		blog.Updated_at = now
@@ -116,7 +107,6 @@ func (bu *BlogUsecase) CreateBlog(ctx context.Context, blog *domain.Blog) (strin
 		blog.View_count = 0
 		blog.Comment_count = 0
 
-		// Create the blog itself
 		var err error
 		blogID, err = bu.blogRepo.Create(txCtx, *blog)
 		if err != nil {
@@ -157,20 +147,14 @@ func (bu *BlogUsecase) GetBlogByID(ctx context.Context, blogID, userID string) (
 		}
 		fetchedBlog = blog
 
-		// Try to create a new view record for the user.
-		// We use a transaction to ensure either both the view record is created and the view count is incremented,
-		// or neither happens.
 		err = bu.blogViewRepo.CreateViewRecord(txCtx, blogID, userID)
 		if err != nil {
-			// If the view record already exists for this user, we don't increment the view count.
-			// This is a valid business rule. We return nil to commit the transaction.
 			if errors.Is(err, domain.ErrViewRecordAlreadyExists) {
 				return nil
 			}
 			return domain.ErrCreateViewRecordFailed
 		}
 
-		// If a new view record was successfully created, increment the view count.
 		err = bu.blogRepo.IncrementView(txCtx, blogID)
 		if err != nil {
 			return domain.ErrIncrementViewFailed
@@ -186,34 +170,33 @@ func (bu *BlogUsecase) GetBlogByID(ctx context.Context, blogID, userID string) (
 	return &fetchedBlog, nil
 }
 
-func (bu *BlogUsecase) UpdateBlog(ctx context.Context, blog *domain.Blog) error {
+func (bu *BlogUsecase) UpdateBlog(ctx context.Context, blog *domain.Blog, userID string) error {
 	if blog == nil {
 		return domain.ErrBlogRequired
 	}
 	if blog.Blog_id == "" {
 		return domain.ErrBlogIDRequired
 	}
+	if blog.User_id != userID {
+		return domain.ErrNotBlogAuthor
+	}
 
 	return bu.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// Fetch the existing blog
 		existing, err := bu.blogRepo.GetByID(txCtx, blog.Blog_id)
 		if err != nil {
 			return err
 		}
 
-		// Update fields from the input blog that are not empty
 		if blog.Title != "" {
 			existing.Title = blog.Title
 		}
 		if blog.Content != "" {
 			existing.Content = blog.Content
 		}
-		// NOTE: User_id should not be updatable via this endpoint.
 		if blog.Images != nil {
 			existing.Images = blog.Images
 		}
 
-		// Handle tags: create new tags if needed, store all tag IDs
 		if blog.Tag_ids != nil {
 			allTagIDs, err := bu.ensureTagsExist(txCtx, blog.Tag_ids)
 			if err != nil {
