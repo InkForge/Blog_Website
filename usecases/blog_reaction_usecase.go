@@ -69,7 +69,7 @@ func (uc *BlogReactionUseCase) LikeBlog(ctx context.Context, blog_id, user_id st
 	})
 }
 
-func (uc *BlogReactionUseCase) DisLikeBlog(ctx context.Context, blog_id, user_id string) error {
+func (uc *BlogReactionUseCase) DislikeBlog(ctx context.Context, blog_id, user_id string) error {
 
 
 	return uc.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
