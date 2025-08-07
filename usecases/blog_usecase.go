@@ -23,7 +23,7 @@ func NewBlogUsecase(
 	tagRepo domain.ITagRepository,
 	userRepo domain.IUserRepository,
 	transactionManager domain.ITransactionManager,
-) domain.IBlogUsecase {
+) domain.IBlogUseCase {
 	return &BlogUsecase{
 		blogRepo:           blogRepo,
 		blogViewRepo:       blogViewRepo,
