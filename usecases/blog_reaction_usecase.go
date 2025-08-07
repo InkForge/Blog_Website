@@ -18,7 +18,7 @@ func NewBlogReactionUseCase(
 	blogRepo domain.IBlogRepository,
 	blogReactionRepo domain.IBlogReactionRepository,
 	transactionManager domain.ITransactionManager,
-) domain.IBlogReactionUsecase {
+) *BlogReactionUseCase {
 	return &BlogReactionUseCase{
 		blogRepo:           blogRepo,
 		blogReactionRepo:   blogReactionRepo,
@@ -69,8 +69,7 @@ func (uc *BlogReactionUseCase) LikeBlog(ctx context.Context, blog_id, user_id st
 	})
 }
 
-func (uc *BlogReactionUseCase) DisLikeBlog(ctx context.Context, blog_id, user_id string) error {
-
+func (uc *BlogReactionUseCase) DislikeBlog(ctx context.Context, blog_id, user_id string) error {
 
 	return uc.transactionManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// checking if we are creating a new record or updating existing
