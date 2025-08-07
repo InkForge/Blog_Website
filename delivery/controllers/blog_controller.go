@@ -206,7 +206,10 @@ func (bc *BlogController) UpdateBlog(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(ogCtx, 5*time.Second)
 	defer cancel()
 
+
 	err := bc.BlogUsecase.UpdateBlog(ctx, jsonBlog.ToDomainBlog(), userIDStr)
+
+
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
