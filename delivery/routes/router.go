@@ -1,3 +1,12 @@
+package routes
+
+import (
+	"github.com/InkForge/Blog_Website/delivery/controllers"
+	auth "github.com/InkForge/Blog_Website/infrastructures/auth"
+	infrastructures "github.com/InkForge/Blog_Website/infrastructures/auth"
+	"github.com/gin-gonic/gin"
+)
+
 // RegisterBlogRoutes registers blog-related routes.
 func RegisterBlogRoutes(router *gin.Engine, blogController *controllers.BlogController, authService *infrastructures.AuthService) {
 	// Public routes
@@ -30,14 +39,6 @@ func RegisterBlogReactionRoutes(router *gin.Engine, blogReactionController *cont
 		authGroup.POST("/blogs/:id/undislike", blogReactionController.UndislikeBlog)
 	}
 }
-package routes
-
-import (
-	"github.com/InkForge/Blog_Website/delivery/controllers"
-	auth "github.com/InkForge/Blog_Website/infrastructures/auth"
-  infrastructures "github.com/InkForge/Blog_Website/infrastructures/auth"
-	"github.com/gin-gonic/gin"
-)
 
 func NewAuthRouter(authController controllers.AuthController, authService auth.AuthService, group gin.RouterGroup) {
 
