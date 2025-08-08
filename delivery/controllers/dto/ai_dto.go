@@ -68,3 +68,20 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 	Code    int    `json:"code,omitempty"`
 }
+
+type ChatCompletionRequest struct {
+	Model    string        `json:"model"`
+	Messages []ChatMessage `json:"messages"`
+}
+
+type ChatCompletionChoice struct {
+	Message ChatMessage `json:"message"`
+}
+
+type ChatCompletionResponse struct {
+	ID      string                  `json:"id"`
+	Object  string                  `json:"object"`
+	Created int64                   `json:"created"`
+	Model   string                  `json:"model"`
+	Choices []ChatCompletionChoice  `json:"choices"`
+}

@@ -97,6 +97,20 @@ func RegisterOAuthRoutes(
 	}
 }
 
+func NewAIRouter(aiController *controllers.AIController, authService *infrastructures.AuthService, group gin.RouterGroup) {
+	
+	// authenticated routes - require logged-in users
+	groupAuth := group.Group("/")
+	groupAuth.Use(authService.AuthWithRole("USER", "ADMIN"))
+	{	
+		groupAuth.POST("/suggest-tags", aiController.SuggestTags)
+		groupAuth.POST("/summarize", aiController.Summarize)
+		groupAuth.POST("/generate-title", aiController.GenerateTitle)
+		groupAuth.POST("/suggest-content", aiController.SuggestContent)  
+		groupAuth.POST("/improve-content", aiController.ImproveContent)  
+		groupAuth.POST("/chat", aiController.Chat)                     
+	}
+}
 
 func SetupRouter(
 	commentController *controllers.CommentController,
@@ -107,6 +121,7 @@ func SetupRouter(
 	authController *controllers.AuthController,
 	oauthController *controllers.OAuth2Controller,
 	userController *controllers.UserController,
+	aiController *controllers.AIController,
 ) *gin.Engine {
 	router := gin.Default()
   
@@ -127,10 +142,12 @@ func SetupRouter(
 	RegisterOAuthRoutes(router, oauthController)
 
 	//user routes
+	userGroup :=router.Group("/users")
+	NewUserRoutes(userController, *userGroup)
 
-	userGroup:=router.Group("/users")
-	NewUserRoutes(userController,*userGroup)
-
+	// ai integration routes
+	aiGroup := router.Group("/ai")
+	NewAIRouter(aiController, authService, *aiGroup)
 
 	return router
 }
