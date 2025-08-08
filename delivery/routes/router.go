@@ -39,6 +39,15 @@ func RegisterBlogReactionRoutes(router *gin.Engine, blogReactionController *cont
 		authGroup.POST("/blogs/:id/undislike", blogReactionController.UndislikeBlog)
 	}
 }
+func NewUserRoutes(userController *controllers.UserController,group gin.RouterGroup){
+	group.GET("/",userController.GetUsers)
+	group.GET("/:id",userController.GetUserByID)
+	group.GET("/me",userController.GetMyProfile)
+	group.PUT("/me",userController.UpdateProfile)
+	group.DELETE("/:id",userController.DeleteUser)
+	group.GET("/search",userController.SearchUsers)
+
+}
 
 func NewAuthRouter(authController controllers.AuthController, authService auth.AuthService, group gin.RouterGroup) {
 
@@ -97,6 +106,7 @@ func SetupRouter(
 	authService *infrastructures.AuthService,
 	authController *controllers.AuthController,
 	oauthController *controllers.OAuth2Controller,
+	userController *controllers.UserController,
 ) *gin.Engine {
 	router := gin.Default()
   
@@ -113,7 +123,14 @@ func SetupRouter(
 	authGroup := router.Group("/auth")
 	NewAuthRouter(*authController, *authService, *authGroup)
 
+
 	RegisterOAuthRoutes(router, oauthController)
+
+	//user routes
+
+	userGroup:=router.Group("/users")
+	NewUserRoutes(userController,*userGroup)
+
 
 	return router
 }

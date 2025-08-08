@@ -44,8 +44,11 @@ func main() {
 	authService := infrastructures.NewAuthService(jwtService, configs.JWTSecretKey)
 	oauth2Service, err := infrastructures.NewOAuth2Service(providersConfigs)
 
+	
 	blogUsecase := usecases.NewBlogUsecase(blogRepo, blogViewRepo, tagRepo, userRepo, txManager)
 	blogReactionUsecase := usecases.NewBlogReactionUseCase(blogRepo, blogReactionRepo, txManager)
+	
+	userUsecase:=usecases.NewUserUseCase(userRepo)
 
 	commentUsecase := usecases.NewCommentUsecase(blogRepo, commentRepo, txManager)
 	commentReactionUsecase := usecases.NewCommentReactionUsecase(commentRepo, commentReactionRepo, txManager)
@@ -63,8 +66,9 @@ func main() {
 	commentReactionController := controllers.NewCommentReactionController(commentReactionUsecase)
 	authController := controllers.NewAuthController(authUsecase)
 	oauthController := controllers.NewOAuth2Controller(oauth2Service, authUsecase)
+	userControler:=controllers.NewUserController(userUsecase)
 
-	r := routes.SetupRouter(commentController, commentReactionController, blogController, blogReactionController, authService, authController, oauthController)
+	r := routes.SetupRouter(commentController, commentReactionController, blogController, blogReactionController, authService, authController, oauthController,userControler)
 
 	r.Run(":" + configs.AppPort)
 }
