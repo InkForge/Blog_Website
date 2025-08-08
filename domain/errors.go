@@ -82,6 +82,9 @@ var (
 	ErrInvalidOAuthUserData             = errors.New("invalid OAuth user data")
 	ErrOAuthProviderMismatch             = errors.New("OAuth provider mismatch for this account")
 
+
+	// ─── AI Errors ───────────────────────────────────────────────────────
+	ErrContentMissing = errors.New("content is missing")
 	// ─── Generic Errors ────────────────────────────────────────────────────
 	ErrInternalServerError = errors.New("internal server error")
 )

@@ -3,7 +3,7 @@ package domain
 import "context"
 
 // AIContentService defines AI-powered content assistance capabilities.
-type AIContentService interface {
+type IAIContentService interface {
     SuggestTags(ctx context.Context, title, content string, maxTags int) ([]string, error)
     Summarize(ctx context.Context, content string, maxWords int) (string, error)
     GenerateTitle(ctx context.Context, content, style string) (string, error)
