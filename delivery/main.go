@@ -8,6 +8,8 @@ import (
 	"github.com/InkForge/Blog_Website/delivery/routes"
 	infrastructures2 "github.com/InkForge/Blog_Website/infrastructures"
 	infrastructures "github.com/InkForge/Blog_Website/infrastructures/auth"
+	infrastructures3 "github.com/InkForge/Blog_Website/infrastructures/ai"
+	aiclient "github.com/InkForge/Blog_Website/infrastructures/ai/client"
 	mongo "github.com/InkForge/Blog_Website/infrastructures/db/mongo"
 	"github.com/InkForge/Blog_Website/repositories"
 	mongo2 "github.com/InkForge/Blog_Website/repositories/mongo"
@@ -48,7 +50,7 @@ func main() {
 	blogUsecase := usecases.NewBlogUsecase(blogRepo, blogViewRepo, tagRepo, userRepo, txManager)
 	blogReactionUsecase := usecases.NewBlogReactionUseCase(blogRepo, blogReactionRepo, txManager)
 	
-	userUsecase:=usecases.NewUserUseCase(userRepo)
+	userUsecase:=usecases.NewUserUseCase(userRepo, 10 * time.Second)
 
 	commentUsecase := usecases.NewCommentUsecase(blogRepo, commentRepo, txManager)
 	commentReactionUsecase := usecases.NewCommentReactionUsecase(commentRepo, commentReactionRepo, txManager)
@@ -68,7 +70,20 @@ func main() {
 	oauthController := controllers.NewOAuth2Controller(oauth2Service, authUsecase)
 	userControler:=controllers.NewUserController(userUsecase)
 
-	r := routes.SetupRouter(commentController, commentReactionController, blogController, blogReactionController, authService, authController, oauthController,userControler)
+	apikey := configs.AIApiKey
+	aimodelname := configs.AIModelName
+
+	aiclient := aiclient.NewGroqClient(apikey, aimodelname)
+	
+	if err != nil {
+		log.Fatal("error: ", err)
+	}
+
+	aiService := infrastructures3.NewAIContentService(aiclient)
+	aiUsecase := usecases.NewAIUsecase(aiService)
+	aiController := controllers.NewAIController(aiUsecase)
+
+	r := routes.SetupRouter(commentController, commentReactionController, blogController, blogReactionController, authService, authController, oauthController,userControler, aiController)
 
 	r.Run(":" + configs.AppPort)
 }

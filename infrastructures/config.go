@@ -35,7 +35,10 @@ type Config struct {
 	EmailFrom     string
 	EmailFromName string
 
-	OpenAIApiKey string
+	AIApiKey       string
+	AIModelName    string
+	AIApiBaseUrl   string
+	AIProvider     string
 
 	DefaultPageSize int
 	MaxPageSize     int
@@ -98,7 +101,10 @@ func LoadConfig() (*Config, error) {
 		EmailFrom:     viper.GetString("EMAIL_FROM"),
 		EmailFromName: viper.GetString("EMAIL_FROM_NAME"),
 
-		OpenAIApiKey: viper.GetString("OPENAI_API_KEY"),
+		AIApiKey: viper.GetString("AI_API_KEY"),
+		AIModelName:  viper.GetString("AI_MODEL_NAME"),
+		AIApiBaseUrl: viper.GetString("AI_API_BASE_URL"),
+		AIProvider:   viper.GetString("AI_PROVIDER"),
 
 		DefaultPageSize: viper.GetInt("DEFAULT_PAGE_SIZE"),
 		MaxPageSize:     viper.GetInt("MAX_PAGE_SIZE"),

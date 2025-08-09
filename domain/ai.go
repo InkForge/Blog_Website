@@ -35,3 +35,8 @@ type ImprovementResult struct {
 }
 
 
+// AIModelClient defines the low-level AI API communication methods.
+// Generate sends a prompt string to the AI provider and returns the raw text response.
+type IAIModelClient interface {
+    Generate(ctx context.Context, prompt string) (string, error)
+}
