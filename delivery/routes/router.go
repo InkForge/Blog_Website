@@ -39,13 +39,13 @@ func RegisterBlogReactionRoutes(router *gin.Engine, blogReactionController *cont
 		authGroup.POST("/blogs/:id/undislike", blogReactionController.UndislikeBlog)
 	}
 }
-func NewUserRoutes(userController *controllers.UserController,group gin.RouterGroup){
-	group.GET("/",userController.GetUsers)
-	group.GET("/:id",userController.GetUserByID)
-	group.GET("/me",userController.GetMyProfile)
-	group.PUT("/me",userController.UpdateProfile)
-	group.DELETE("/:id",userController.DeleteUser)
-	group.GET("/search",userController.SearchUsers)
+func NewUserRoutes(userController *controllers.UserController,group gin.RouterGroup,authService *auth.AuthService){
+	group.GET("/",authService.AuthWithRole("ADMIN"),userController.GetUsers)
+	group.GET("/:id",authService.AuthWithRole("ADMIN"),userController.GetUserByID)
+	group.GET("/me",authService.AuthWithRole("USER","ADMIN"),userController.GetMyProfile)
+	group.PUT("/me",authService.AuthWithRole("USER","ADMIN"),userController.UpdateProfile)
+	group.DELETE("/:id",authService.AuthWithRole("ADMIN"),userController.DeleteUser)
+	group.GET("/search",authService.AuthWithRole("USER","ADMIN"),userController.SearchUsers)
 
 }
 
@@ -143,7 +143,7 @@ func SetupRouter(
 
 	//user routes
 	userGroup :=router.Group("/users")
-	NewUserRoutes(userController, *userGroup)
+	NewUserRoutes(userController, *userGroup,authService)
 
 	// ai integration routes
 	aiGroup := router.Group("/ai")
