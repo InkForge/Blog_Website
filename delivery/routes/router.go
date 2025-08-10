@@ -11,11 +11,10 @@ import (
 func RegisterBlogRoutes(router *gin.Engine, blogController *controllers.BlogController, authService *infrastructures.AuthService) {
 	// Public routes
 	router.GET("/blogs", blogController.GetAllBlogs)
-	router.GET("/blogs/:id", blogController.GetBlogByID)
+	router.GET("/blogs/:id", authService.AuthWithRole("USER", "ADMIN"), blogController.GetBlogByID)
 
-	// Authenticated group (users with "user" or "admin" roles)
 	authGroup := router.Group("/")
-	authGroup.Use(authService.AuthWithRole("user", "admin"))
+	authGroup.Use(authService.AuthWithRole("USER", "ADMIN"))
 	{
 		authGroup.POST("/blogs", blogController.CreateBlog)
 		authGroup.PUT("/blogs/:id", blogController.UpdateBlog)
@@ -29,9 +28,8 @@ func RegisterBlogRoutes(router *gin.Engine, blogController *controllers.BlogCont
 
 // RegisterBlogReactionRoutes registers blog reaction routes.
 func RegisterBlogReactionRoutes(router *gin.Engine, blogReactionController *controllers.BlogReactionController, authService *infrastructures.AuthService) {
-	// Authenticated group (users with "user" or "admin" roles)
 	authGroup := router.Group("/")
-	authGroup.Use(authService.AuthWithRole("user", "admin"))
+	authGroup.Use(authService.AuthWithRole("USER", "ADMIN"))
 	{
 		authGroup.POST("/blogs/:id/like", blogReactionController.LikeBlog)
 		authGroup.POST("/blogs/:id/dislike", blogReactionController.DislikeBlog)
@@ -39,13 +37,13 @@ func RegisterBlogReactionRoutes(router *gin.Engine, blogReactionController *cont
 		authGroup.POST("/blogs/:id/undislike", blogReactionController.UndislikeBlog)
 	}
 }
-func NewUserRoutes(userController *controllers.UserController,group gin.RouterGroup){
-	group.GET("/",userController.GetUsers)
-	group.GET("/:id",userController.GetUserByID)
-	group.GET("/me",userController.GetMyProfile)
-	group.PUT("/me",userController.UpdateProfile)
-	group.DELETE("/:id",userController.DeleteUser)
-	group.GET("/search",userController.SearchUsers)
+func NewUserRoutes(userController *controllers.UserController, group gin.RouterGroup) {
+	group.GET("/", userController.GetUsers)
+	group.GET("/:id", userController.GetUserByID)
+	group.GET("/me", userController.GetMyProfile)
+	group.PUT("/me", userController.UpdateProfile)
+	group.DELETE("/:id", userController.DeleteUser)
+	group.GET("/search", userController.SearchUsers)
 
 }
 
@@ -57,7 +55,7 @@ func NewAuthRouter(authController controllers.AuthController, authService auth.A
 	group.POST("/resend", authController.ResendVerification)
 	group.POST("/forget", authController.RequestPasswordReset)
 	group.POST("/reset", authController.ResetPassword)
-	group.POST("/logout", authService.AuthWithRole("USER", "ADMIN"),authController.Logout)
+	group.POST("/logout", authService.AuthWithRole("USER", "ADMIN"), authController.Logout)
 	group.GET("/refresh", authService.AuthWithRole("USER", "ADMIN"), authController.RefreshToken)
 }
 
@@ -71,9 +69,8 @@ func RegisterCommentAndReactionRoutes(
 	// Public route: Anyone can view comments for a blog post
 	router.GET("/blogs/:id/comments", commentController.GetBlogComments)
 
-	// Authenticated group (users with "user" or "admin" roles)
 	authGroup := router.Group("/")
-	authGroup.Use(authService.AuthWithRole("user", "admin"))
+	authGroup.Use(authService.AuthWithRole("USER", "ADMIN"))
 	{
 		// Comment CRUD
 		authGroup.POST("/blogs/:id/comments", commentController.AddComment)
@@ -98,17 +95,17 @@ func RegisterOAuthRoutes(
 }
 
 func NewAIRouter(aiController *controllers.AIController, authService *infrastructures.AuthService, group gin.RouterGroup) {
-	
+
 	// authenticated routes - require logged-in users
 	groupAuth := group.Group("/")
 	groupAuth.Use(authService.AuthWithRole("USER", "ADMIN"))
-	{	
+	{
 		groupAuth.POST("/suggest-tags", aiController.SuggestTags)
 		groupAuth.POST("/summarize", aiController.Summarize)
 		groupAuth.POST("/generate-title", aiController.GenerateTitle)
-		groupAuth.POST("/suggest-content", aiController.SuggestContent)  
-		groupAuth.POST("/improve-content", aiController.ImproveContent)  
-		groupAuth.POST("/chat", aiController.Chat)                     
+		groupAuth.POST("/suggest-content", aiController.SuggestContent)
+		groupAuth.POST("/improve-content", aiController.ImproveContent)
+		groupAuth.POST("/chat", aiController.Chat)
 	}
 }
 
@@ -124,7 +121,7 @@ func SetupRouter(
 	aiController *controllers.AIController,
 ) *gin.Engine {
 	router := gin.Default()
-  
+
 	// Register comment & reaction routes
 	RegisterCommentAndReactionRoutes(router, commentController, commentReactionController, authService)
 
@@ -138,11 +135,10 @@ func SetupRouter(
 	authGroup := router.Group("/auth")
 	NewAuthRouter(*authController, *authService, *authGroup)
 
-
 	RegisterOAuthRoutes(router, oauthController)
 
 	//user routes
-	userGroup :=router.Group("/users")
+	userGroup := router.Group("/users")
 	NewUserRoutes(userController, *userGroup)
 
 	// ai integration routes
