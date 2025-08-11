@@ -88,7 +88,7 @@ func (cu *CommentUsecase) RemoveComment(
 		return domain.ErrCommentNotFound
 	}
 
-	if role != "admin" && comment.User_id != requesterID {
+	if role != "ADMIN" && comment.User_id != requesterID {
 		return domain.ErrForbidden
 	}
 
@@ -126,7 +126,7 @@ func (cu *CommentUsecase) UpdateComment(
 		return domain.ErrCommentNotFound
 	}
 
-	if role != "admin" && comment.User_id != existing.User_id {
+	if role != "ADMIN" && comment.User_id != existing.User_id {
 		return domain.ErrForbidden
 	}
 
