@@ -27,27 +27,39 @@ func (c CommentMongoRepository) Create(ctx context.Context, comment domain.Comme
 	if err != nil {
 		return "", domain.ErrInsertingDocuments
 	}
-	
-	// Safe type assertion with error handling
-	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
-		return oid.Hex(), nil
-	}
-	return "", domain.ErrInsertingDocuments
+
+    // Safe type assertion with error handling
+    if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+        // Ensure the string comment_id mirrors the ObjectID for consistency
+        // Ignore the update error here to avoid failing the creation if this secondary write fails
+        _, _ = c.commentCollection.UpdateByID(
+            ctx,
+            oid,
+            bson.M{"$set": bson.M{"comment_id": oid.Hex()}},
+        )
+        return oid.Hex(), nil
+    }
+    return "", domain.ErrInsertingDocuments
 }
 
 func (c CommentMongoRepository) GetByID(ctx context.Context, commentID string) (domain.Comment, error) {
-	filter := bson.M{"comment_id": commentID}
-	var commentModel models.CommentMongo
+    // Support lookup by either string comment_id or the underlying _id
+    filter := bson.M{"comment_id": commentID}
+    if oid, err := primitive.ObjectIDFromHex(commentID); err == nil {
+        filter = bson.M{"$or": []bson.M{{"comment_id": commentID}, {"_id": oid}}}
+    }
 
-	err := c.commentCollection.FindOne(ctx, filter).Decode(&commentModel)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return domain.Comment{}, domain.ErrCommentNotFound
-		}
-		return domain.Comment{}, domain.ErrRetrievingDocuments
-	}
+    var commentModel models.CommentMongo
 
-	return *commentModel.ToDomain(), nil
+    err := c.commentCollection.FindOne(ctx, filter).Decode(&commentModel)
+    if err != nil {
+        if err == mongo.ErrNoDocuments {
+            return domain.Comment{}, domain.ErrCommentNotFound
+        }
+        return domain.Comment{}, domain.ErrRetrievingDocuments
+    }
+
+    return *commentModel.ToDomain(), nil
 }
 
 func (c CommentMongoRepository) GetByBlogID(ctx context.Context, blogID string) ([]domain.Comment, error) {
