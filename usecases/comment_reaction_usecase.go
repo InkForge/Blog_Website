@@ -161,8 +161,8 @@ func (cru *CommentReactionUsecase) RemoveReaction(ctx context.Context, commentID
 		return err
 	}
 
-	// Only the user who created the reaction or an admin can remove it
-	if role != "admin" && existingReaction.User_id != userID {
+	// Only the user who created the reaction or an ADMIN can remove it
+	if role != "ADMIN" && existingReaction.User_id != userID {
 		return domain.ErrForbidden
 	}
 
