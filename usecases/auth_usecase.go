@@ -112,7 +112,7 @@ func (uc *AuthUseCase) Register(ctx context.Context, input *domain.User, oauthUs
 		verificationLink := fmt.Sprintf("%s/auth/verify?token=%s", uc.BaseURL, verificationToken)
 		emailBody := generateVerificationEmailBody(verificationLink)
 		if err = uc.NotificationService.SendEmail(newUser.Email, "Verify Your Email Address", emailBody); err != nil {
-			fmt.Println("email sending failed:", err)
+			return nil,err
 		}
 	}
 
