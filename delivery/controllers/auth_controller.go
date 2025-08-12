@@ -124,7 +124,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 		Value:    result.AccessToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(result.ExpiresIn.Seconds()),
 	})
@@ -289,13 +289,14 @@ func (au *AuthController) VerifyEmail(c *gin.Context) {
 // RefreshToken is an HTTP handler that handles the token refreshing endpoint.
 // If the operation is successful, it updates the access_token cookie and returns its expiration.
 func (au *AuthController) RefreshToken(c *gin.Context) {
-	userID := c.GetString("userID")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "failed to fetch userID"})
-		return
-	}
-
-	accessToken, _, expiresIn, err := au.AuthUsecase.RefreshToken(c, userID)
+	 var req struct {
+        RefreshToken string `json:"refresh_token"`
+    }
+    if err := c.ShouldBindJSON(&req); err != nil || req.RefreshToken == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "missing refresh token"})
+        return
+    }
+	accessToken, _, expiresIn, err := au.AuthUsecase.RefreshToken(c, req.RefreshToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return
@@ -306,7 +307,7 @@ func (au *AuthController) RefreshToken(c *gin.Context) {
 		Value:    *accessToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(expiresIn.Seconds()),
 	})
@@ -340,7 +341,7 @@ func (au *AuthController) Logout(c *gin.Context) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:  false,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
