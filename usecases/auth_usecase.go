@@ -310,27 +310,31 @@ func (uc *AuthUseCase) Logout(ctx context.Context, userID string) error {
 }
 
 // refresh token
-func (uc *AuthUseCase) RefreshToken(ctx context.Context, userID string) (*string, *string, time.Duration, error) {
+func (uc *AuthUseCase) RefreshToken(ctx context.Context, providedRefreshToken string) (*string, *string, time.Duration, error) {
     emptyToken := ""
 
-    if userID == "" {
-        return &emptyToken, &emptyToken, 0, fmt.Errorf("%w", domain.ErrInvalidInput)
-    }
-
-    user, err := uc.UserRepo.FindByID(ctx, userID)
-    if err != nil {
-        return &emptyToken, &emptyToken, 0, domain.ErrDatabaseOperationFailed
-    }
-
-    if user.RefreshToken == nil {
+    if providedRefreshToken == "" {
         return &emptyToken, &emptyToken, 0, domain.ErrInvalidInput
     }
 
-    userIDFromToken, role, err := uc.JWTService.ValidateRefreshToken(*user.RefreshToken)
+    // Validate refresh token and extract claims
+    userIDFromToken, role, err := uc.JWTService.ValidateRefreshToken(providedRefreshToken)
     if err != nil {
         return &emptyToken, &emptyToken, 0, domain.ErrTokenVerificationFailed
     }
 
+    // Fetch user from DB
+    user, err := uc.UserRepo.FindByID(ctx, userIDFromToken)
+    if err != nil {
+        return &emptyToken, &emptyToken, 0, domain.ErrDatabaseOperationFailed
+    }
+
+    // Ensure token matches the one stored in DB
+    if user.RefreshToken == nil || *user.RefreshToken != providedRefreshToken {
+        return &emptyToken, &emptyToken, 0, domain.ErrTokenVerificationFailed
+    }
+
+    // Generate new tokens
     newAccessToken, expiryTime, err := uc.JWTService.GenerateAccessToken(userIDFromToken, role)
     if err != nil {
         return &emptyToken, &emptyToken, 0, domain.ErrTokenGenerationFailed
@@ -341,6 +345,7 @@ func (uc *AuthUseCase) RefreshToken(ctx context.Context, userID string) (*string
         return &emptyToken, &emptyToken, 0, domain.ErrTokenGenerationFailed
     }
 
+    // Update user tokens in DB
     user.AccessToken = &newAccessToken
     user.RefreshToken = &newRefreshToken
     user.UpdatedAt = time.Now()

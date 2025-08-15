@@ -56,7 +56,7 @@ func NewAuthRouter(authController controllers.AuthController, authService auth.A
 	group.POST("/forget", authController.RequestPasswordReset)
 	group.POST("/reset", authController.ResetPassword)
 	group.POST("/logout", authService.AuthWithRole("USER", "ADMIN"), authController.Logout)
-	group.GET("/refresh", authService.AuthWithRole("USER", "ADMIN"), authController.RefreshToken)
+	group.POST("/refresh/", authController.RefreshToken)
 }
 
 // RegisterCommentAndReactionRoutes registers both comment and comment reaction routes in one group.
